@@ -141,7 +141,7 @@ description: This specifies the Helm Chart values (in yaml format) for deploying
 
 ### Pre requirements
 
-A FloatingIPRange object is tied to a Rancher "Cloud Credential". This cloud credential needs to be shared between all users. To accomplish this, create a cloud credential in Rancher (via Cluster Management --> Cloud Credentials) and identify the name which starts with "cc-". Then replace the <SECRETNAME CLOUD-CREDENTIAL> placeholder with the cloud credential "cc-" name in the next (Harvester) example which creates a readonly Role and RoleBinding for this cloud credential secret:
+A FloatingIPRange object is tied to a Rancher "Cloud Credential". This cloud credential needs to be shared between all users. To accomplish this, create a cloud credential in Rancher (via Cluster Management --> Cloud Credentials) and identify the name which starts with "cc-". Then replace the *\<SECRETNAME CLOUD-CREDENTIAL>* placeholder with the cloud credential "cc-" name in the next (Harvester) example which creates a readonly Role and RoleBinding for this cloud credential secret:
 
 ```YAML
 (
