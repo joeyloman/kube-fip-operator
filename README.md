@@ -139,6 +139,46 @@ description: This specifies the Helm Chart values (in yaml format) for deploying
 
 ## Usage
 
+### Pre requirements
+
+A FloatingIPRange object is tied to a Rancher "Cloud Credential". This cloud credential needs to be shared between all users. To accomplish this, create a cloud credential in Rancher (via Cluster Management --> Cloud Credentials) and identify the name which starts with "cc-". Then replace the <SECRETNAME CLOUD-CREDENTIAL> placeholder with the cloud credential "cc-" name in the next (Harvester) example which creates a readonly Role and RoleBinding for this cloud credential secret:
+
+```YAML
+(
+cat <<EOF
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: read-harvester-cc-secret
+  namespace: cattle-global-data
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  resourceNames:
+  - <SECRETNAME CLOUD-CREDENTIAL>
+  verbs:
+  - get
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: harvester-cloud-config-read
+  namespace: cattle-global-data
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: read-harvester-cc-secret
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:authenticated
+EOF
+) | kubectl create -f -
+```
+
 ### Creating a Floating IP Range object
 
 The following yaml/command can be used to create a new FloatingIPRange object:
@@ -165,9 +205,13 @@ Object explanation:
 <li>The harvesterNetworkName annotation is related to the Harvester cloud provider network of the cluster. This is used to match a certain network name if the Harvester cloud provider has multiple networks configured.
 <li>The IP range/cidr needs to be configured in the spec.iprange.
 
+As you can see in the above example, the "cc-" cloud credential (secret) name, which we identified in the pre requirements, is also used in this object.
+
 ### Creating a Floating IP object
 
-The following yaml/command can be used to create a new FloatingIPRange object with a static ip address assigned:
+FloatingIP objects are automatically created when there is a new cluster created. This is done by the event watcher mechanism which monitors on new cluster namespaces starting with "c-m-". When such a new namespace is found, the kube-fip-operator will detect which FloatingIPRange object is tied to the used cloud credential and then creates the FloatingIP object for the new cluster. Allocating FloatingIP objects can also be done manually by using the examples below. It's also possible to assign previously used ip addresses to a certian cluster by updating the FloatingIP object of the cluster and replace the ipaddress in the spec.
+
+The following yaml/command can be used to create a new FloatingIP object with a static ip address assigned:
 
 ```SH
 (
@@ -187,7 +231,7 @@ EOF
 ) | kubectl create -f -
 ```
 
-And the following yaml/command can be used to create a new FloatingIPRange object with a dynamic ip address assigned:
+And the following yaml/command can be used to create a new FloatingIP object with a dynamic ip address assigned:
 
 ```SH
 (
