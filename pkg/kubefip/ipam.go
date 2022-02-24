@@ -138,7 +138,7 @@ func RemoveFipFromAllFips(fip *KubefipV1.FloatingIP) error {
 	// if no fip is found then we should return a error
 	if !FipFound {
 		// should not be reached!
-		errMsg := fmt.Sprintf("fip [%s/%s] not found in the allFips list!", fip.ObjectMeta.Namespace, fip.ObjectMeta.Name)
+		errMsg := fmt.Sprintf("fip [%s/%s] not found in the allFips list", fip.ObjectMeta.Namespace, fip.ObjectMeta.Name)
 		return errors.New(errMsg)
 	}
 

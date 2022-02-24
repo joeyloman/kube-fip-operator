@@ -22,6 +22,8 @@ type KubefipConfigStruct struct {
 	KubevipChartValues              string `json:"KubevipChartValues"`
 	KubevipCloudProviderChartValues string `json:"KubevipCloudProviderChartValues"`
 	KubevipUpdate                   bool   `json:"KubevipUpdate"`
+	RemoveHarvesterCloudProvider    bool   `json:"RemoveHarvesterCloudProvider"`
+	HarvesterCloudProviderNamespace string `json:"HarvesterCloudProviderNamespace"`
 }
 
 func GetKubefipConfigmap(clientset *kubernetes.Clientset) (*corev1.ConfigMap, error) {
@@ -50,14 +52,18 @@ func ParseKubfipConfigMap(kubefipConfigmap *corev1.ConfigMap) KubefipConfigStruc
 	kubefipConfig.KubevipChartValues = "{\"image\":{\"repository\":\"plndr/kube-vip\",\"tag\":\"v0.3.7\"},\"config\":{\"vip_interface\":\"enp1s0\"},\"nodeSelector\":{\"node-role.kubernetes.io/master\":\"true\"}}"
 	kubefipConfig.KubevipCloudProviderChartValues = "{\"image\":{\"repository\":\"kubevip/kube-vip-cloud-provider\",\"tag\":\"0.1\"}}"
 	kubefipConfig.KubevipUpdate = false
+	kubefipConfig.RemoveHarvesterCloudProvider = false
+	kubefipConfig.HarvesterCloudProviderNamespace = "kube-system"
 
 	if kubefipConfigmap == nil {
 		log.Debugf("(ParseKubfipConfigMap) config options: LogLevel [%s] / TraceIpamData [%+v] / OperateGuestClusterInterval [%d] / "+
 			"KubevipGuestInstall [%s] / KubevipNamespace [%s] / KubevipChartRepoUrl [%s] / KubevipChartValues [%s] / "+
-			"KubevipCloudProviderChartValues [%s], KubevipUpdate [%+v]",
+			"KubevipCloudProviderChartValues [%s] / KubevipUpdate [%+v] / RemoveHarvesterCloudProvider [%+v] / "+
+			"HarvesterCloudProviderNamespace [%+v]",
 			kubefipConfig.LogLevel, kubefipConfig.TraceIpamData, kubefipConfig.OperateGuestClusterInterval, kubefipConfig.KubevipGuestInstall,
 			kubefipConfig.KubevipNamespace, kubefipConfig.KubevipChartRepoUrl, kubefipConfig.KubevipChartValues,
-			kubefipConfig.KubevipCloudProviderChartValues, kubefipConfig.KubevipUpdate)
+			kubefipConfig.KubevipCloudProviderChartValues, kubefipConfig.KubevipUpdate, kubefipConfig.RemoveHarvesterCloudProvider,
+			kubefipConfig.HarvesterCloudProviderNamespace)
 
 		return kubefipConfig
 	}
@@ -113,12 +119,27 @@ func ParseKubfipConfigMap(kubefipConfigmap *corev1.ConfigMap) KubefipConfigStruc
 		kubefipConfig.KubevipUpdate = kubevipUpdate
 	}
 
+	if kubefipConfigmap.Data["removeHarvesterCloudProvider"] != "" {
+		removeHarvesterCloudProvider, err := strconv.ParseBool(kubefipConfigmap.Data["removeHarvesterCloudProvider"])
+		if err != nil {
+			log.Errorf("(parseKubfipConfigMap) error parsing removeHarvesterCloudProvider: %s", err)
+		}
+
+		kubefipConfig.RemoveHarvesterCloudProvider = removeHarvesterCloudProvider
+	}
+
+	if kubefipConfigmap.Data["harvesterCloudProviderNamespace"] != "" {
+		kubefipConfig.HarvesterCloudProviderNamespace = kubefipConfigmap.Data["harvesterCloudProviderNamespace"]
+	}
+
 	log.Debugf("(ParseKubfipConfigMap) config options: LogLevel [%s] / TraceIpamData [%+v] / OperateGuestClusterInterval [%d] / "+
 		"KubevipGuestInstall [%s] / KubevipNamespace [%s] / KubevipChartRepoUrl [%s] / KubevipChartValues [%s] / "+
-		"KubevipCloudProviderChartValues [%s], KubevipUpdate [%+v]",
+		"KubevipCloudProviderChartValues [%s] / KubevipUpdate [%+v] / RemoveHarvesterCloudProvider [%+v] / "+
+		"HarvesterCloudProviderNamespace [%+v]",
 		kubefipConfig.LogLevel, kubefipConfig.TraceIpamData, kubefipConfig.OperateGuestClusterInterval, kubefipConfig.KubevipGuestInstall,
 		kubefipConfig.KubevipNamespace, kubefipConfig.KubevipChartRepoUrl, kubefipConfig.KubevipChartValues,
-		kubefipConfig.KubevipCloudProviderChartValues, kubefipConfig.KubevipUpdate)
+		kubefipConfig.KubevipCloudProviderChartValues, kubefipConfig.KubevipUpdate, kubefipConfig.RemoveHarvesterCloudProvider,
+		kubefipConfig.HarvesterCloudProviderNamespace)
 
 	return kubefipConfig
 }

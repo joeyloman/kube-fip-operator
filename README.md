@@ -137,6 +137,24 @@ default value: |
 description: This specifies the Helm Chart values (in yaml format) for deploying the Kube-Vip Cloud Provider.
 ```
 
+**removeHarvesterCloudProvider**
+```YAML
+option: removeHarvesterCloudProvider
+value: true, false
+default value: true
+description: If this option is enabled, the harvester-cloud-provider will be removed from the Guest cluster when kube-vip is enabled/installed.
+```
+
+
+**harvesterCloudProviderNamespace**
+```YAML
+option: harvesterCloudProviderNamespace
+value: <namespace name>
+default value: kube-system
+description: The name of the NameSpace where the harvester-cloud-provider helm chart is deployed.
+```
+
+
 ## Usage
 
 ### Pre requirements

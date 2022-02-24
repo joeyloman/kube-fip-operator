@@ -134,13 +134,15 @@ data:
       vip_interface: enp1s0
     image:
       repository: plndr/kube-vip
-      tag: v0.3.7
+      tag: v0.4.1
     nodeSelector:
       node-role.kubernetes.io/master: 'true'
   kubevipCloudProviderChartValues: |
     image:
       repository: kubevip/kube-vip-cloud-provider
       tag: 0.1
+  removeHarvesterCloudProvider: "false"
+  harvesterCloudProviderNamespace: kube-system
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -168,7 +170,7 @@ spec:
     spec:
       containers:
       - name: kube-fip-operator
-        image: ghcr.io/joeyloman/kube-fip-operator:v0.1
+        image: ghcr.io/joeyloman/kube-fip-operator:v0.2
         imagePullPolicy: IfNotPresent
         resources:
           requests:

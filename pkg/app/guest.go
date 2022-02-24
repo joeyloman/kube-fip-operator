@@ -25,7 +25,63 @@ import (
 
 var operateTicker *time.Ticker
 
-func installKubevipinGuestCluster(kubeconfig []byte, kubefipConfig *config.KubefipConfigStruct, fip KubefipV1.FloatingIP) error {
+func removeHarvesterCloudProviderFromGuestCluster(kubeconfig []byte, kubefipConfig *config.KubefipConfigStruct, fip KubefipV1.FloatingIP) error {
+	var err error
+
+	// if the RemoveHarvesterCloudProvider boolean is not set then don't do anything
+	if !kubefipConfig.RemoveHarvesterCloudProvider {
+		log.Debugf("(removeHarvesterCloudProviderFromGuestCluster) the removal of the harvester-cloud-provider is disabled in the config")
+
+		return err
+	}
+
+	config, err := clientcmd.RESTConfigFromKubeConfig(kubeconfig)
+	if err != nil {
+		return err
+	}
+
+	opt := &helmclient.RestConfClientOptions{
+		Options: &helmclient.Options{
+			Namespace:        kubefipConfig.HarvesterCloudProviderNamespace,
+			RepositoryCache:  "/tmp/.helmcache-harvester-cloud-provider",
+			RepositoryConfig: "/tmp/.helmrepo-harvester-cloud-provider",
+			Debug:            true,
+			Linting:          true,
+		},
+		RestConfig: config,
+	}
+
+	helmClient, err := helmclient.NewClientFromRestConf(opt)
+	if err != nil {
+		return err
+	}
+
+	harvesterCloudProviderReleaseCheck, err := helmClient.GetRelease("harvester-cloud-provider")
+	if err != nil {
+		if err.Error() == "release: not found" {
+			// the harvester-cloud-provider is not installed
+			log.Debugf("(removeHarvesterCloudProviderFromGuestCluster) harvester-cloud-provider release not found in guest cluster [%s]",
+				fip.ObjectMeta.Annotations["clustername"])
+
+			return nil
+		} else {
+			return err
+		}
+	}
+
+	if harvesterCloudProviderReleaseCheck != nil {
+		log.Debugf("(removeHarvesterCloudProviderFromGuestCluster) helm chart found in guest cluster [%s], removing helm chart: %s",
+			fip.ObjectMeta.Annotations["clustername"], harvesterCloudProviderReleaseCheck.Name)
+
+		if err := helmClient.UninstallReleaseByName("harvester-cloud-provider"); err != nil {
+			return err
+		}
+	}
+
+	return err
+}
+
+func installKubevipInGuestCluster(kubeconfig []byte, kubefipConfig *config.KubefipConfigStruct, fip KubefipV1.FloatingIP) error {
 	var err error
 
 	config, err := clientcmd.RESTConfigFromKubeConfig(kubeconfig)
@@ -36,8 +92,8 @@ func installKubevipinGuestCluster(kubeconfig []byte, kubefipConfig *config.Kubef
 	opt := &helmclient.RestConfClientOptions{
 		Options: &helmclient.Options{
 			Namespace:        kubefipConfig.KubevipNamespace,
-			RepositoryCache:  "/tmp/.helmcache",
-			RepositoryConfig: "/tmp/.helmrepo",
+			RepositoryCache:  "/tmp/.helmcache-kube-vip",
+			RepositoryConfig: "/tmp/.helmrepo-kube-vip",
 			Debug:            true,
 			Linting:          true,
 		},
@@ -53,7 +109,7 @@ func installKubevipinGuestCluster(kubeconfig []byte, kubefipConfig *config.Kubef
 	if err != nil {
 		if err.Error() == "release: not found" {
 			// now we can install it
-			log.Infof("(installKubevipinGuestCluster) kube-vip release not found in guest cluster [%s], trying to install it",
+			log.Infof("(installKubevipInGuestCluster) kube-vip release not found in guest cluster [%s], trying to install it",
 				fip.ObjectMeta.Annotations["clustername"])
 		} else {
 			return err
@@ -61,7 +117,7 @@ func installKubevipinGuestCluster(kubeconfig []byte, kubefipConfig *config.Kubef
 	}
 
 	if kubevipReleaseCheck != nil {
-		log.Debugf("(installKubevipinGuestCluster) helm chart already found in guest cluster [%s]: %s",
+		log.Debugf("(installKubevipInGuestCluster) helm chart already found in guest cluster [%s]: %s",
 			fip.ObjectMeta.Annotations["clustername"], kubevipReleaseCheck.Name)
 
 		// if not in update mode, don't update kube-vip
@@ -92,10 +148,10 @@ func installKubevipinGuestCluster(kubeconfig []byte, kubefipConfig *config.Kubef
 		return err
 	}
 
-	log.Debugf("(installKubevipinGuestCluster) returned kube-vip helm release manifest: %s",
+	log.Debugf("(installKubevipInGuestCluster) returned kube-vip helm release manifest: %s",
 		kubevipRelease.Manifest)
 
-	log.Infof("(installKubevipinGuestCluster) kube-vip helm chart installed successfully in guest cluster [%s]",
+	log.Infof("(installKubevipInGuestCluster) kube-vip helm chart installed successfully in guest cluster [%s]",
 		fip.ObjectMeta.Annotations["clustername"])
 
 	chartSpecKubevipCloudprovider := helmclient.ChartSpec{
@@ -111,10 +167,10 @@ func installKubevipinGuestCluster(kubeconfig []byte, kubefipConfig *config.Kubef
 		return err
 	}
 
-	log.Debugf("(installKubevipinGuestCluster) returned kube-vip-cloud-provider helm release manifest: %s",
+	log.Debugf("(installKubevipInGuestCluster) returned kube-vip-cloud-provider helm release manifest: %s",
 		kubevipCloudproviderRelease.Manifest)
 
-	log.Infof("(installKubevipinGuestCluster) kube-vip-cloud-provider helm chart installed successfully in guest cluster [%s]",
+	log.Infof("(installKubevipInGuestCluster) kube-vip-cloud-provider helm chart installed successfully in guest cluster [%s]",
 		fip.ObjectMeta.Annotations["clustername"])
 
 	return err
@@ -230,53 +286,62 @@ func operateGuestClusters(clientset *kubernetes.Clientset, kubefipConfig *config
 		log.Debugf("(operateGuestClusters) checking fip name [%s] in clusternamespace [%s]",
 			kubefip.AllFips[i].ObjectMeta.Name, kubefip.AllFips[i].ObjectMeta.Namespace)
 
-		kubeconfig, err := getGuestClusterKubeconfig(clientset, kubefip.AllFips[i])
-		if err != nil {
-			log.Errorf("(operateGuestClusters) error in fetching kubeconfig: %s", err.Error())
-		}
-
-		// determine the kube-vip installation type
-		kubevipGuestInstallLabel = false
-		if kubefipConfig.KubevipGuestInstall == "clusterlabel" {
-			// get all cluster variables
-			cluster, err := getClusterVariables(kubefip.AllFips[i].ObjectMeta.Namespace, clientset)
+		// check if the floatingip object is still a part of the cluster object, otherwise skip the rest
+		if err := checkClusterStatus(clientset, kubefip.AllFips[i]); err != nil {
+			log.Errorf("%s", err.Error())
+		} else {
+			// get the guest cluster kubeconfig
+			kubeconfig, err := getGuestClusterKubeconfig(clientset, kubefip.AllFips[i])
 			if err != nil {
-				log.Errorf("(operateGuestClusters) cannot get cluster object for cluster namespace [%s]: %s",
-					kubefip.AllFips[i].ObjectMeta.Namespace, err.Error())
-
-				return
+				log.Errorf("(operateGuestClusters) error in fetching kubeconfig: %s", err.Error())
 			}
 
-			// check if the cluster label is set
-			if cluster.Labels["kube-vip"] != "" {
-				kubeVipLabel, err := strconv.ParseBool(cluster.Labels["kube-vip"])
+			// determine the kube-vip installation type
+			kubevipGuestInstallLabel = false
+			if kubefipConfig.KubevipGuestInstall == "clusterlabel" {
+				// get all cluster variables
+				cluster, err := getClusterVariables(kubefip.AllFips[i].ObjectMeta.Namespace, clientset)
 				if err != nil {
-					log.Errorf("(operateGuestClusters) error parsing kube-vip label: %s", err)
+					log.Errorf("(operateGuestClusters) error cannot get cluster object for cluster namespace [%s] to determine clusterlabel: %s",
+						kubefip.AllFips[i].ObjectMeta.Namespace, err.Error())
 				} else {
-					kubevipGuestInstallLabel = kubeVipLabel
+					// check if the cluster label is set
+					if cluster.Labels["kube-vip"] != "" {
+						kubeVipLabel, err := strconv.ParseBool(cluster.Labels["kube-vip"])
+						if err != nil {
+							log.Errorf("(operateGuestClusters) error parsing kube-vip label: %s", err)
+						} else {
+							kubevipGuestInstallLabel = kubeVipLabel
+						}
+					}
 				}
 			}
-		}
 
-		log.Debugf("(operateGuestClusters) kubevipGuestInstallLabel: [%+v]", kubevipGuestInstallLabel)
+			log.Debugf("(operateGuestClusters) kubevipGuestInstallLabel: [%+v]", kubevipGuestInstallLabel)
 
-		// try to install kube-vip and the kube-vip-cloud-provider
-		if kubefipConfig.KubevipGuestInstall == "enabled" || kubevipGuestInstallLabel {
-			if err := installKubevipinGuestCluster(kubeconfig, kubefipConfig, kubefip.AllFips[i]); err != nil {
-				// if the error contains "Forbidden" the cluster is in deploy state
-				if !strings.Contains(err.Error(), "Forbidden") {
-					log.Errorf("(operateGuestClusters) error while managing the kube-vip installation in guest cluster [%s]: %s",
+			// try to remove the harvester-cloud-provider and install kube-vip and the kube-vip-cloud-provider
+			if kubefipConfig.KubevipGuestInstall == "enabled" || kubevipGuestInstallLabel {
+				if err := removeHarvesterCloudProviderFromGuestCluster(kubeconfig, kubefipConfig, kubefip.AllFips[i]); err != nil {
+					log.Errorf("(operateGuestClusters) error while removing the harvester-cloud-provider from guest cluster [%s]: %s",
 						kubefip.AllFips[i].ObjectMeta.Annotations["clustername"], err.Error())
 				}
-			}
-		}
 
-		// try to manage the kubevip configmap in kube-system
-		if err := createOrUpdateKubevipConfigmapInGuestCluster(kubeconfig, kubefipConfig, kubefip.AllFips[i]); err != nil {
-			// if the error contains "Forbidden" the cluster is in deploy state
-			if !strings.Contains(err.Error(), "Forbidden") {
-				log.Errorf("(operateGuestClusters) error while managing the kube-vip config in guest cluster [%s]: %s",
-					kubefip.AllFips[i].ObjectMeta.Annotations["clustername"], err.Error())
+				if err := installKubevipInGuestCluster(kubeconfig, kubefipConfig, kubefip.AllFips[i]); err != nil {
+					// if the error contains "Forbidden" the cluster is in deploy state
+					if !strings.Contains(err.Error(), "Forbidden") {
+						log.Errorf("(operateGuestClusters) error while managing the kube-vip installation in guest cluster [%s]: %s",
+							kubefip.AllFips[i].ObjectMeta.Annotations["clustername"], err.Error())
+					}
+				}
+			}
+
+			// try to manage the kubevip configmap in kube-system
+			if err := createOrUpdateKubevipConfigmapInGuestCluster(kubeconfig, kubefipConfig, kubefip.AllFips[i]); err != nil {
+				// if the error contains "Forbidden" the cluster is in deploy state
+				if !strings.Contains(err.Error(), "Forbidden") {
+					log.Errorf("(operateGuestClusters) error while managing the kube-vip config in guest cluster [%s]: %s",
+						kubefip.AllFips[i].ObjectMeta.Annotations["clustername"], err.Error())
+				}
 			}
 		}
 	}

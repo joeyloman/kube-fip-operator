@@ -16,6 +16,36 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+func checkClusterStatus(k8s_clientset *kubernetes.Clientset, fip KubefipV1.FloatingIP) error {
+	var err error
+
+	log.Debugf("(checkClusterStatus) checking if cluster [%s] exists in the clusters.provisioning.cattle.io objects",
+		fip.ObjectMeta.Annotations["clustername"])
+
+	cluster, err := k8s_clientset.RESTClient().Get().AbsPath("/apis/provisioning.cattle.io/v1").Namespace("fleet-default").Resource("clusters").Name(fip.ObjectMeta.Annotations["clustername"]).DoRaw(context.TODO())
+	if err != nil {
+		log.Errorf("(checkClusterStatus) error while fetching cluster objects: %s", err.Error())
+	}
+
+	c := ClusterStruct{}
+	if err = json.Unmarshal(cluster, &c); err != nil {
+		log.Errorf("(checkClusterStatus) error unmarshall json: %s", err.Error())
+		return err
+	}
+
+	log.Debugf("(checkClusterStatus) cluster object status clustername: [%s] / floatingip namespace: [%s]",
+		c.Status.ClusterName, fip.ObjectMeta.Namespace)
+
+	// checking if the namespace in the floatingip objects is the same as in the cluster object
+	if c.Status.ClusterName != fip.ObjectMeta.Namespace {
+		errMsg := fmt.Sprintf("(checkClusterStatus) error: clustername [%s] from floatingip [%s/%s] cannot be found in the cluster objects",
+			fip.ObjectMeta.Annotations["clustername"], fip.ObjectMeta.Namespace, fip.ObjectMeta.Name)
+		return errors.New(errMsg)
+	}
+
+	return err
+}
+
 func getHarvesterNetworkName(machineConfigRefName string, k8s_clientset *kubernetes.Clientset) (string, error) {
 	var err error
 	var harvesterNetworkName string
@@ -74,7 +104,7 @@ func getClusterVariables(nsName string, k8s_clientset *kubernetes.Clientset) (Cl
 		log.Debugf("(getClusterVariables) clusterstruct object: [%+v]", item.Metadata.Name)
 
 		if item.Status.ClusterName == nsName {
-			log.Debugf("(getClusterVariables) match found! Status.ClusterName [%s] matches NamespaceName [%s]", item.Status.ClusterName, nsName)
+			log.Debugf("(getClusterVariables) match found: status clustername [%s] matches namespace [%s]", item.Status.ClusterName, nsName)
 
 			// get the machineConfigRef name so we can lookup the network in HarvesterConfig object
 			for _, mps := range item.Spec.RkeConfig.MachinePools {
