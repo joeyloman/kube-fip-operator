@@ -46,6 +46,38 @@ func checkClusterStatus(k8s_clientset *kubernetes.Clientset, fip KubefipV1.Float
 	return err
 }
 
+func getHarvesterClusterName(cloudCredentialSecretName string, k8s_clientset *kubernetes.Clientset) (string, error) {
+	var err error
+	var harvesterClusterName string
+
+	log.Debugf("(getHarvesterClusterName) fetching the harvester clusterid from the cloudCredentialSecretName: %s", cloudCredentialSecretName)
+
+	cloudCredentialSecret, err := k8s_clientset.CoreV1().Secrets("cattle-global-data").Get(context.TODO(), cloudCredentialSecretName, metav1.GetOptions{})
+	if err != nil {
+		errMsg := fmt.Sprintf("(getHarvesterNetworkName) error while fetching the cloud credential secret contents: %s", err.Error())
+		return harvesterClusterName, errors.New(errMsg)
+	}
+
+	harvesterClusterId := string(cloudCredentialSecret.Data["harvestercredentialConfig-clusterId"])
+
+	harvesterCluster, err := k8s_clientset.RESTClient().Get().AbsPath("/apis/management.cattle.io/v3").Resource("clusters").Name(harvesterClusterId).DoRaw(context.TODO())
+	if err != nil {
+		errMsg := fmt.Sprintf("(getHarvesterNetworkName) error while fetching harvesterCluster object: %s", err.Error())
+		return harvesterClusterName, errors.New(errMsg)
+	}
+
+	hc := ClusterManagementStruct{}
+	if err = json.Unmarshal(harvesterCluster, &hc); err != nil {
+		log.Errorf("(getHarvesterNetworkName) error unmarshall json: %s", err.Error())
+	}
+
+	harvesterClusterName = hc.Spec.DisplayName
+
+	log.Debugf("(getHarvesterClusterName) found harvesterClusterName: [%s]", harvesterClusterName)
+
+	return harvesterClusterName, err
+}
+
 func getHarvesterNetworkName(machineConfigRefName string, k8s_clientset *kubernetes.Clientset) (string, error) {
 	var err error
 	var harvesterNetworkName string
@@ -140,6 +172,15 @@ func getClusterVariables(nsName string, k8s_clientset *kubernetes.Clientset) (Cl
 					// get the actual clustername
 					cluster.ClusterName = item.Metadata.Name
 
+					// get the harvester clustername
+					harvesterClusterName, err := getHarvesterClusterName(cluster.CloudCredentialSecretName, k8s_clientset)
+					if err != nil {
+						log.Errorf("%s", err)
+
+						return cluster, err
+					}
+					cluster.HarvesterClusterName = harvesterClusterName
+
 					return cluster, err
 				}
 			}
@@ -171,14 +212,14 @@ func checkNewNamespace(ns *corev1.Namespace, kubefip_clientset *kubefipclientset
 		}
 
 		// if these objects are empty we have no match
-		if cluster.CloudCredentialSecretName == "" || cluster.ClusterName == "" {
+		if cluster.HarvesterClusterName == "" || cluster.ClusterName == "" {
 			log.Debugf("(checkNewNamespace) namespace [%s] does not exists as a cluster object", ns.Name)
 
 			return
 		}
 
-		log.Debugf("(checkNewNamespace) cloudCredentialSecretName [%s] and clusterName [%s] and machineConfigRefName [%s] found for namespace [%s]",
-			cluster.CloudCredentialSecretName, cluster.ClusterName, cluster.MachineConfigRefName, ns.Name)
+		log.Debugf("(checkNewNamespace) harvesterClusterName [%s] and cloudCredentialSecretName [%s] and clusterName [%s] and machineConfigRefName [%s] found for namespace [%s]",
+			cluster.HarvesterClusterName, cluster.CloudCredentialSecretName, cluster.ClusterName, cluster.MachineConfigRefName, ns.Name)
 
 		// Harvester configuration found, fetching network information
 		if cluster.MachineConfigRefName != "" {
@@ -213,9 +254,9 @@ func checkNewNamespace(ns *corev1.Namespace, kubefip_clientset *kubefipclientset
 		}
 
 		for _, fiprange := range fipRangeList.Items {
-			if fiprange.ObjectMeta.Annotations["cloudCredentialSecret"] == cluster.CloudCredentialSecretName {
-				log.Debugf("(checkNewNamespace) fiprange match found [%s] with cloud credential secret [%s]",
-					fiprange.ObjectMeta.Name, fiprange.ObjectMeta.Annotations["cloudCredentialSecret"])
+			if fiprange.ObjectMeta.Annotations["harvesterClusterName"] == cluster.HarvesterClusterName {
+				log.Debugf("(checkNewNamespace) fiprange match found [%s] with harvester cluster name [%s]",
+					fiprange.ObjectMeta.Name, fiprange.ObjectMeta.Annotations["harvesterClusterName"])
 
 				// if a harvester network name is found, try to match it with a annotation in the the fiprange
 				if harvesterNetworkName != "" {

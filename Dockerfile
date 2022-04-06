@@ -1,4 +1,4 @@
-FROM docker.io/golang:alpine3.14 as builder
+FROM docker.io/golang:1.17-alpine3.14 as builder
 RUN mkdir /src /deps
 RUN apk update && apk add git build-base
 WORKDIR /deps
