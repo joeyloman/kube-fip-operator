@@ -43,7 +43,7 @@ func AllocateFip(fip *KubefipV1.FloatingIP, clientset *kubefipclientset.Clientse
 	// check if the spec has an IPAddress specified
 	if fip.Spec.IPAddress == "" {
 		// allocate a new FIP in the prefix
-		ip, err := ipam.AcquireIP(pfx.Cidr)
+		ip, err := ipam.AcquireIP(ctx, pfx.Cidr)
 		if err != nil {
 			log.Errorf("(AllocateFip) cannot acquire new ip address for [%s/%s]",
 				fip.ObjectMeta.Namespace, fip.ObjectMeta.Name)
@@ -68,7 +68,7 @@ func AllocateFip(fip *KubefipV1.FloatingIP, clientset *kubefipclientset.Clientse
 		}
 	} else {
 		// register the allocated fip in the prefix
-		ip, err := ipam.AcquireSpecificIP(pfx.Cidr, fip.Spec.IPAddress)
+		ip, err := ipam.AcquireSpecificIP(ctx, pfx.Cidr, fip.Spec.IPAddress)
 		if err != nil {
 			return err
 		} else {
@@ -99,7 +99,7 @@ func RemoveFip(fip *KubefipV1.FloatingIP) error {
 	// lookup the fiprange name to get the cidr and check if it exists
 	pfx := PrefixList[frName]
 	if pfx.Cidr != "" {
-		if err := ipam.ReleaseIPFromPrefix(pfx.Cidr, fip.Spec.IPAddress); err != nil {
+		if err := ipam.ReleaseIPFromPrefix(ctx, pfx.Cidr, fip.Spec.IPAddress); err != nil {
 			log.Errorf("(RemoveFip) error while removing fip [%s/%s] from pfx cidr [%s]: %s",
 				fip.ObjectMeta.Name, fip.Spec.IPAddress, frName, err.Error())
 		} else {

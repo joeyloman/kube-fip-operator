@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 
@@ -19,6 +20,7 @@ var (
 	AllFipRanges []KubefipV1.FloatingIPRange // note: this list is only needed during startup, lookups are replaced by the prefixList map
 	AllFips      []KubefipV1.FloatingIP
 	ipam         goipam.Ipamer
+	ctx          context.Context
 	PrefixList   map[string]goipam.Prefix
 )
 
@@ -153,6 +155,13 @@ func RemoveFipFromAllFips(fip *KubefipV1.FloatingIP) error {
 func InitIpam() {
 	// create a ipamer with in memory storage
 	ipam = goipam.New()
+
+	// create the context
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// fixes the declared and not used error
+	_ = ctx
 }
 
 func CreateIpamPrefixesFromFipRanges() {

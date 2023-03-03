@@ -143,7 +143,7 @@ func installKubevipInGuestCluster(kubeconfig []byte, kubefipConfig *config.Kubef
 		Wait:        false,
 	}
 
-	kubevipRelease, err := helmClient.InstallOrUpgradeChart(context.Background(), &chartSpecKubevip)
+	kubevipRelease, err := helmClient.InstallOrUpgradeChart(context.Background(), &chartSpecKubevip, nil)
 	if err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func installKubevipInGuestCluster(kubeconfig []byte, kubefipConfig *config.Kubef
 		Wait:        false,
 	}
 
-	kubevipCloudproviderRelease, err := helmClient.InstallOrUpgradeChart(context.Background(), &chartSpecKubevipCloudprovider)
+	kubevipCloudproviderRelease, err := helmClient.InstallOrUpgradeChart(context.Background(), &chartSpecKubevipCloudprovider, nil)
 	if err != nil {
 		return err
 	}

@@ -172,6 +172,16 @@ data:
       tag: v0.4.1
     nodeSelector:
       node-role.kubernetes.io/master: 'true'
+    tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/master
+      operator: Exists
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/control-plane
+      operator: Exists
+    - effect: NoExecute
+      key: node-role.kubernetes.io/etcd
+      operator: Exists
   kubevipCloudProviderChartValues: |
     image:
       repository: kubevip/kube-vip-cloud-provider
