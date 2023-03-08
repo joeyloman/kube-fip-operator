@@ -2,10 +2,29 @@ package kubefip
 
 import (
 	"errors"
+	"fmt"
 
 	KubefipV1 "github.com/joeyloman/kube-fip-operator/pkg/apis/kubefip.k8s.binbash.org/v1"
+	"github.com/joeyloman/kube-fip-operator/pkg/metrics"
 	log "github.com/sirupsen/logrus"
 )
+
+func GetFipRange(fipRangeName string) (KubefipV1.FloatingIPRange, error) {
+	log.Debugf("(GetFipRange) retrieving fipRangeName: [%s]\n", fipRangeName)
+
+	for i := 0; i < len(AllFipRanges); i++ {
+		// check if the fiprange has a match
+		if fipRangeName == AllFipRanges[i].ObjectMeta.Name {
+			log.Debugf("(GetFipRange) fiprange match found, returning object")
+
+			return AllFipRanges[i], nil
+		}
+	}
+
+	errMsg := fmt.Sprintf("(GetFipRange) fiprange [%s] not found!", fipRangeName)
+
+	return KubefipV1.FloatingIPRange{}, errors.New(errMsg)
+}
 
 func AllocateFipRange(fipRange *KubefipV1.FloatingIPRange) error {
 	var err error
@@ -29,6 +48,14 @@ func AllocateFipRange(fipRange *KubefipV1.FloatingIPRange) error {
 	log.Infof("(AllocateFipRange) successfully allocated fiprange [%s] with cidr [%s]",
 		fipRange.ObjectMeta.Name, prefix.Cidr)
 
+	metrics.SetFiprangesCapacity(fipRange.ObjectMeta.Name, fipRange.Spec.IPRange, fipRange.ObjectMeta.Annotations["harvesterClusterName"],
+		fipRange.ObjectMeta.Annotations["harvesterNetworkName"])
+
+	// add/update the fiprange in the allFipRanges list
+	if err := UpdateAllFipRanges(fipRange); err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -51,6 +78,13 @@ func RemoveFipRange(fipRange *KubefipV1.FloatingIPRange) error {
 
 	log.Infof("(RemoveFipRange) successfully removed fiprange [%s] with cidr [%s]",
 		fipRange.ObjectMeta.Name, prefix)
+
+	metrics.RemoveFiprangeMetrics(fipRange.ObjectMeta.Name, fipRange.Spec.IPRange, fipRange.ObjectMeta.Annotations["harvesterClusterName"],
+		fipRange.ObjectMeta.Annotations["harvesterNetworkName"])
+
+	if err := RemoveFipRangeFromAllFipRanges(fipRange); err != nil {
+		return err
+	}
 
 	return err
 }

@@ -78,6 +78,23 @@ func getHarvesterClusterName(cloudCredentialSecretName string, k8s_clientset *ku
 	return harvesterClusterName, err
 }
 
+func getHarvesterClusterNameFromFipRange(fip *KubefipV1.FloatingIP, kubefip_clientset *kubefipclientset.Clientset) (string, error) {
+	var err error
+	var harvesterClusterName string
+
+	fipRange := string(fip.ObjectMeta.Annotations["fiprange"])
+
+	fipRangeObj, err := kubefip_clientset.KubefipV1().FloatingIPRanges().Get(context.TODO(), fipRange, metav1.GetOptions{})
+	if err == nil {
+		harvesterClusterName = fipRangeObj.ObjectMeta.Annotations["harvesterClusterName"]
+	}
+
+	log.Debugf("(getHarvesterClusterNameFromFipRange) fetched harvester clustername [%s] from the fiprange [%s]",
+		harvesterClusterName, fipRange)
+
+	return harvesterClusterName, err
+}
+
 func getHarvesterNetworkName(machineConfigRefName string, k8s_clientset *kubernetes.Clientset) (string, error) {
 	var err error
 	var harvesterNetworkName string

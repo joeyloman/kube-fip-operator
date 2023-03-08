@@ -149,3 +149,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3
 	sigs.k8s.io/yaml v1.3.0
 )
+
+require github.com/apparentlymart/go-cidr v1.1.0 // indirect

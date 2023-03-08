@@ -161,9 +161,10 @@ data:
   traceIpamData: "false"
   kubevipUpdate: "false"
   operateGuestClusterInterval: "480"
+  metricsPort: "8080"
   kubevipGuestInstall: "clusterlabel"
   kubevipNamespace: kube-system
-  kubevipChartRepoUrl: "https://kube-vip.io/helm-charts"
+  kubevipChartRepoUrl: "https://kube-vip.github.io/helm-charts"
   kubevipChartValues: |
     config:
       vip_interface: enp1s0
@@ -186,8 +187,6 @@ data:
     image:
       repository: kubevip/kube-vip-cloud-provider
       tag: 0.1
-  removeHarvesterCloudProvider: "false"
-  harvesterCloudProviderNamespace: kube-system
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -202,7 +201,7 @@ spec:
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: kube-fip-operator
+      app: kube-fip
   strategy:
     rollingUpdate:
       maxSurge: 25%
@@ -211,11 +210,11 @@ spec:
   template:
     metadata:
       labels:
-        app: kube-fip-operator
+        app: kube-fip
     spec:
       containers:
       - name: kube-fip-operator
-        image: ghcr.io/joeyloman/kube-fip-operator:v0.3
+        image: ghcr.io/joeyloman/kube-fip-operator:v0.4
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -232,3 +231,37 @@ spec:
       securityContext: {}
       serviceAccountName: kube-fip-operator
       terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: kube-fip
+  name: kube-fip-metrics
+  namespace: kube-fip
+spec:
+  selector:
+    app: kube-fip
+  ports:
+    - name: metrics
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: kube-fip
+  name: kube-fip-operator
+  namespace: kube-fip
+spec:
+  endpoints:
+    - port: metrics
+      scheme: http
+  jobLabel: jobLabel
+  selector:
+    matchLabels:
+      app: kube-fip
