@@ -4,6 +4,7 @@ import (
 	"github.com/joeyloman/kube-fip-operator/pkg/config"
 	kubefipclientset "github.com/joeyloman/kube-fip-operator/pkg/generated/clientset/versioned"
 	"github.com/joeyloman/kube-fip-operator/pkg/kubefip"
+	"github.com/joeyloman/kube-fip-operator/pkg/metrics"
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
@@ -21,6 +22,9 @@ func Run(kubefip_clientset *kubefipclientset.Clientset, k8s_clientset *kubernete
 
 	// update the loglevel
 	updateLoglevel(&kubefipConfig)
+
+	// init all metrics as a goroutine (separate thread)
+	go metrics.InitMetrics(kubefipConfig.MetricsPort)
 
 	// create an array with all the FipRange objects
 	if err := kubefip.GatherAllFipRanges(kubefip_clientset); err != nil {

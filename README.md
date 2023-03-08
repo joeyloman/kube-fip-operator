@@ -72,6 +72,13 @@ value: <integer> (in seconds)
 description: This specifies the interval when the guest cluster operations are running.
 ```
 
+**metricsPort**
+```YAML
+option: metricsPort
+value: <integer> (port number)
+description: This specifies the port number where the prometheus metrics are exposed on.
+```
+
 **traceIpamData**
 ```YAML
 option: traceIpamData
@@ -120,7 +127,7 @@ default value: |
     vip_interface: enp1s0
   image:
     repository: plndr/kube-vip
-    tag: v0.3.7
+    tag: v0.4.1
   nodeSelector:
     node-role.kubernetes.io/master: 'true'
 description: This specifies the Helm Chart values (in yaml format) for deploying Kube-Vip.
@@ -135,23 +142,6 @@ default value: |
     repository: kubevip/kube-vip-cloud-provider
     tag: 0.1
 description: This specifies the Helm Chart values (in yaml format) for deploying the Kube-Vip Cloud Provider.
-```
-
-**removeHarvesterCloudProvider**
-```YAML
-option: removeHarvesterCloudProvider
-value: true, false
-default value: true
-description: If this option is enabled, the harvester-cloud-provider will be removed from the Guest cluster when kube-vip is enabled/installed.
-```
-
-
-**harvesterCloudProviderNamespace**
-```YAML
-option: harvesterCloudProviderNamespace
-value: <namespace name>
-default value: kube-system
-description: The name of the NameSpace where the harvester-cloud-provider helm chart is deployed.
 ```
 
 
@@ -179,7 +169,7 @@ EOF
 
 Object explanation:
 
-<li> The harvesterClusterName annotation is related to a Rancher "Harvester Cluster". This is used by the program to tie it to a certain location.
+<li>The harvesterClusterName annotation is related to a Rancher "Harvester Cluster". This is used by the program to tie it to a certain location.
 <li>The harvesterNetworkName annotation is related to the Harvester cloud provider network of the cluster. This is used to match a certain network name if the Harvester cloud provider has multiple networks configured.
 <li>The IP range/cidr needs to be configured in the spec.iprange.
 
@@ -236,6 +226,32 @@ Object explanation:
 <li>The fiprange annotation is related to a FloatingIPRange object. This means that the FloatingIP will be allocated from that pool.
 <li>When the updateConfigMap annotation is set to "true" it will update the kube-vip ConfigMap at every guest cluster operation interval.
 <li>If the spec.ipaddress field is set, that ip will be allocated in the pool if it's free. If the ipaddress object field in the spec is not set, it will automatically allocate a free ip address in the pool and sets it in the FloatingIP object.
+
+
+# Metrics
+
+The kube-fip-operator application also exposes metrics for monitoring purposes. The following metrics are exposed:
+
+```YAML
+Name: kubefipoperator_fipranges_capacity
+Description: This metric contains the total capacity of a Floating IP Range.
+```
+
+```YAML
+Name: kubefipoperator_fipranges_reserved
+Description: This metric contains the total amount of reserved Floating IPs.
+```
+
+```YAML
+Name: kubefipoperator_guestcluster_status
+Description: This metric contains the up (1) or down (0) status of a guest cluster.
+```
+
+```YAML
+Name: kubefipoperator_guestcluster_events
+Description: This metric contains the all the important guest cluster events such as kube-vip configmap management, installations etc.
+```
+
 
 # License
 

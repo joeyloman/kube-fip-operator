@@ -7,6 +7,7 @@ import (
 
 	KubefipV1 "github.com/joeyloman/kube-fip-operator/pkg/apis/kubefip.k8s.binbash.org/v1"
 	kubefipclientset "github.com/joeyloman/kube-fip-operator/pkg/generated/clientset/versioned"
+	"github.com/joeyloman/kube-fip-operator/pkg/metrics"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -62,6 +63,15 @@ func AllocateFip(fip *KubefipV1.FloatingIP, clientset *kubefipclientset.Clientse
 		log.Infof("(AllocateFip) successfully updated Kubernetes fip object [%s/%s] with IP address [%s]",
 			updatedFip.ObjectMeta.Namespace, updatedFip.ObjectMeta.Name, updatedFip.Spec.IPAddress)
 
+		// update the metrics
+		fipRange, err := GetFipRange(frName)
+		if err != nil {
+			log.Errorf("(AllocateFip) could not increment Fipranges metrics: %s", err)
+		} else {
+			metrics.IncrementFiprangesReserved(frName, pfx.Cidr, fipRange.ObjectMeta.Annotations["harvesterClusterName"],
+				fipRange.ObjectMeta.Annotations["harvesterNetworkName"])
+		}
+
 		// add/update the fip in the allFips list
 		if err := UpdateAllFips(updatedFip); err != nil {
 			return err
@@ -74,6 +84,15 @@ func AllocateFip(fip *KubefipV1.FloatingIP, clientset *kubefipclientset.Clientse
 		} else {
 			log.Infof("(AllocateFip) successfully allocated fip [%s/%s] with existing IP address: %s",
 				fip.ObjectMeta.Namespace, fip.ObjectMeta.Name, ip.IP)
+		}
+
+		// update the metrics
+		fipRange, err := GetFipRange(frName)
+		if err != nil {
+			log.Errorf("(AllocateFip) could not increment Fipranges metrics: %s", err)
+		} else {
+			metrics.IncrementFiprangesReserved(frName, pfx.Cidr, fipRange.ObjectMeta.Annotations["harvesterClusterName"],
+				fipRange.ObjectMeta.Annotations["harvesterNetworkName"])
 		}
 
 		// add the fip in the allFips list
@@ -105,6 +124,15 @@ func RemoveFip(fip *KubefipV1.FloatingIP) error {
 		} else {
 			log.Infof("(RemoveFip) successfully removed fip [%s/%s] from pfx cidr [%s]",
 				fip.ObjectMeta.Name, fip.Spec.IPAddress, frName)
+
+			// update the metrics
+			fipRange, err := GetFipRange(frName)
+			if err != nil {
+				log.Errorf("(RemoveFip) could not decrement Fipranges metrics: %s", err)
+			} else {
+				metrics.DecrementFiprangesReserved(frName, pfx.Cidr, fipRange.ObjectMeta.Annotations["harvesterClusterName"],
+					fipRange.ObjectMeta.Annotations["harvesterNetworkName"])
+			}
 		}
 	} else {
 		log.Errorf("(RemoveFip) iprange not found in prefix list")

@@ -13,6 +13,7 @@ import (
 	"github.com/joeyloman/kube-fip-operator/pkg/config"
 	kubefipclientset "github.com/joeyloman/kube-fip-operator/pkg/generated/clientset/versioned"
 	"github.com/joeyloman/kube-fip-operator/pkg/kubefip"
+	"github.com/joeyloman/kube-fip-operator/pkg/metrics"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -55,6 +56,16 @@ func watchEvents(kubefip_clientset *kubefipclientset.Clientset, k8s_clientset *k
 					if err := kubefip.RemoveFip(obj.(*KubefipV1.FloatingIP)); err != nil {
 						log.Errorf("(watchFipEvents) error removing fip: %s", err.Error())
 					}
+
+					// get the harvester clustername from the FipRange object (because the cluster and related objects are already gone from here)
+					harvesterClusterName, err := getHarvesterClusterNameFromFipRange(obj.(*KubefipV1.FloatingIP), kubefip_clientset)
+					if err != nil {
+						log.Errorf("(watchFipEvents) error cannot get harvester clustername for fip: [%s]: %s",
+							obj.(*KubefipV1.FloatingIP).ObjectMeta.Name, err.Error())
+					}
+
+					// add the cluster name and harvester cluster name to the metrics cleanup queue
+					metrics.AddClusterToMetricsCleanupQueue(obj.(*KubefipV1.FloatingIP).ObjectMeta.Annotations["clustername"], harvesterClusterName)
 				} else {
 					log.Debugf("(watchFipEvents) not activated yet, object action not executed")
 				}
@@ -144,7 +155,7 @@ func watchEvents(kubefip_clientset *kubefipclientset.Clientset, k8s_clientset *k
 		},
 	)
 
-	// do the eventwatch stuff for namespaces so we can detect new clusters
+	// do the eventwatch stuff for configmaps so we can detect new clusters
 	watchlistConfigmaps := cache.NewListWatchFromClient(k8s_clientset.CoreV1().RESTClient(), "configmaps", "kube-fip", fields.Everything())
 
 	_, controllerConfigmaps := cache.NewInformer(
@@ -170,7 +181,6 @@ func watchEvents(kubefip_clientset *kubefipclientset.Clientset, k8s_clientset *k
 
 						// restart the operateTicker when the interval has changed
 						restartManageKubevip(k8s_clientset, kubefipConfig, oldOperateGuestClusterInterval)
-
 					}
 				} else {
 					log.Debugf("(watchConfigmapEvents) not activated yet, object action not executed")

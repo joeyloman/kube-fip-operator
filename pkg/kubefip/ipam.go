@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	AllFipRanges []KubefipV1.FloatingIPRange // note: this list is only needed during startup, lookups are replaced by the prefixList map
+	AllFipRanges []KubefipV1.FloatingIPRange
 	AllFips      []KubefipV1.FloatingIP
 	ipam         goipam.Ipamer
 	ctx          context.Context
@@ -40,6 +40,82 @@ func GatherAllFipRanges(clientset *kubefipclientset.Clientset) error {
 
 		AllFipRanges = append(AllFipRanges, fiprange)
 	}
+
+	return err
+}
+
+func UpdateAllFipRanges(fipRange *KubefipV1.FloatingIPRange) error {
+	var err error
+	var updatedFipRangeFound bool = false
+
+	log.Debugf("(UpdateAllFipRanges) updating fiprange [%s] in allFipRanges list", fipRange.ObjectMeta.Name)
+
+	var newAllFipRanges []KubefipV1.FloatingIPRange
+
+	for i := 0; i < len(AllFipRanges); i++ {
+		// if the updated fiprange matches the one in the list, add the new fiprange to the new list
+		if fipRange.ObjectMeta.Name == AllFipRanges[i].ObjectMeta.Name {
+			// if the updated fiprange matches the one in the list, add the new fip to the new list
+			log.Debugf("(UpdateAllFipRanges) fiprange to update found, adding new fiprange to the list")
+
+			newAllFipRanges = append(newAllFipRanges, *fipRange)
+
+			updatedFipRangeFound = true
+		} else {
+			// if there is no match, add the fip to the new list
+			log.Debugf("(UpdateAllFipRanges) adding existing fiprange to the list")
+
+			newAllFipRanges = append(newAllFipRanges, AllFipRanges[i])
+		}
+	}
+
+	// if no updated fiprange is found then it should be a new one
+	if !updatedFipRangeFound {
+		log.Debugf("(UpdateAllFipRanges) adding new fiprange to the list")
+
+		newAllFipRanges = append(newAllFipRanges, *fipRange)
+	}
+
+	// all good, assign the new list
+	AllFipRanges = newAllFipRanges
+
+	return err
+}
+
+func RemoveFipRangeFromAllFipRanges(fipRange *KubefipV1.FloatingIPRange) error {
+	var err error
+	var FipRangeFound bool = false
+
+	log.Debugf("(RemoveFipRangeFromAllFipRanges) removing fiprange [%s] from allFipRanges list", fipRange.ObjectMeta.Name)
+
+	var newAllFipRanges []KubefipV1.FloatingIPRange
+
+	for i := 0; i < len(AllFipRanges); i++ {
+		// if the fiprange matches the one in the list, skip it
+		if fipRange.ObjectMeta.Name == AllFipRanges[i].ObjectMeta.Name {
+			// if the updated fiprange matches the one in the list, add the new fiprange to the new list
+			log.Debugf("(RemoveFipRangeFromAllFipRanges) fiprange to remove found, skip appending fiprange to the list")
+
+			FipRangeFound = true
+		} else {
+			// if there is no match, add the fiprange to the new list
+			log.Debugf("(RemoveFipRangeFromAllFipRanges) adding existing fiprange [%s] to the list", AllFipRanges[i].ObjectMeta.Name)
+
+			newAllFipRanges = append(newAllFipRanges, AllFipRanges[i])
+		}
+	}
+
+	// if no fiprange is found then we should return an error
+	if !FipRangeFound {
+		// should not be reached!
+		errMsg := fmt.Sprintf("fiprange [%s] not found in the allFipRanges list", fipRange.ObjectMeta.Name)
+		return errors.New(errMsg)
+	}
+
+	log.Debugf("(RemoveFipRangeFromAllFipRanges) successfully removed fiprange [%s] from allFipRanges list", fipRange.Spec.IPRange)
+
+	// all good, assign the new list
+	AllFipRanges = newAllFipRanges
 
 	return err
 }
@@ -137,14 +213,14 @@ func RemoveFipFromAllFips(fip *KubefipV1.FloatingIP) error {
 		}
 	}
 
-	// if no fip is found then we should return a error
+	// if no fip is found then we should return an error
 	if !FipFound {
 		// should not be reached!
 		errMsg := fmt.Sprintf("fip [%s/%s] not found in the allFips list", fip.ObjectMeta.Namespace, fip.ObjectMeta.Name)
 		return errors.New(errMsg)
 	}
 
-	log.Infof("(RemoveFipFromAllFips) successfully removed fip [%s/%s] from allFips list", fip.ObjectMeta.Name, fip.Spec.IPAddress)
+	log.Debugf("(RemoveFipFromAllFips) successfully removed fip [%s/%s] from allFips list", fip.ObjectMeta.Name, fip.Spec.IPAddress)
 
 	// all good, assign the new list
 	AllFips = newAllFips
@@ -174,7 +250,7 @@ func CreateIpamPrefixesFromFipRanges() {
 		log.Tracef("(CreateIpamPrefixesFromFipRanges) fiprange obj: [%+v]", AllFipRanges[i])
 
 		if err := AllocateFipRange(&AllFipRanges[i]); err != nil {
-			log.Errorf("(watchFipRangeEvents) error allocating fip: %s", err.Error())
+			log.Errorf("(watchFipRangeEvents) error allocating fiprange: %s", err.Error())
 		}
 	}
 }
