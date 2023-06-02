@@ -296,20 +296,20 @@ func checkNewNamespace(ns *corev1.Namespace, kubefip_clientset *kubefipclientset
 
 		for _, fiprange := range fipRangeList.Items {
 			if fiprange.ObjectMeta.Annotations["harvesterClusterName"] == cluster.HarvesterClusterName {
-				log.Debugf("(checkNewNamespace) fiprange match found [%s] with harvester cluster name [%s]",
+				log.Debugf("(checkNewNamespace) fiprange [%s] has a harvesterClusterName annotation match for cluster [%s]",
 					fiprange.ObjectMeta.Name, fiprange.ObjectMeta.Annotations["harvesterClusterName"])
 
 				// if a harvester network name is found, try to match it with a annotation in the the fiprange
 				if harvesterNetworkName != "" {
 					if fiprange.ObjectMeta.Annotations["harvesterNetworkName"] == harvesterNetworkName {
-						log.Debugf("(checkNewNamespace) fiprange harvester network match found [%s] with harvester network name [%s]",
+						log.Debugf("(checkNewNamespace) fiprange [%s] has a harvesterNetworkName annotation match with network [%s]",
 							fiprange.ObjectMeta.Name, fiprange.ObjectMeta.Annotations["harvesterNetworkName"])
 
 						fipRangeName = fiprange.ObjectMeta.Name
 
 						break
 					} else {
-						log.Debugf("(checkNewNamespace) no fiprange harvester network match found [%s] with harvester network name [%s]",
+						log.Debugf("(checkNewNamespace) fiprange [%s] has no harvesterNetworkName annotation match with network [%s]",
 							fiprange.ObjectMeta.Name, fiprange.ObjectMeta.Annotations["harvesterNetworkName"])
 					}
 				} else {
