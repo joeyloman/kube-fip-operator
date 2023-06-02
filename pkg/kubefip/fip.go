@@ -15,7 +15,7 @@ import (
 func AllocateFip(fip *KubefipV1.FloatingIP, clientset *kubefipclientset.Clientset) error {
 	var err error
 
-	log.Tracef("(AllocateFip) fipobj added: [%+v]\n", fip)
+	log.Tracef("(AllocateFip) fipobj added: [%+v]", fip)
 
 	// get the clustername from the fip object annotation and check if it exists
 	cName := fip.ObjectMeta.Annotations["clustername"]
@@ -107,7 +107,7 @@ func AllocateFip(fip *KubefipV1.FloatingIP, clientset *kubefipclientset.Clientse
 func RemoveFip(fip *KubefipV1.FloatingIP) error {
 	var err error
 
-	log.Tracef("(RemoveFip) fipobj removed: [%+v]\n", fip)
+	log.Tracef("(RemoveFip) fipobj removed: [%+v]", fip)
 
 	// get the fiprange from the fip object annotation
 	frName := fip.ObjectMeta.Annotations["fiprange"]

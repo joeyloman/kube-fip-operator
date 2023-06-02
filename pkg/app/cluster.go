@@ -115,16 +115,40 @@ func getHarvesterNetworkName(machineConfigRefName string, k8s_clientset *kuberne
 	for _, item := range h.Items {
 		// check if the harvesterconfig object name matches the machineConfigRefName
 		if item.Metadata.Name == machineConfigRefName {
-			harvesterNetworkNameSplitted := strings.Split(item.NetworkName, "/")
+			if item.NetworkName != "" {
+				harvesterNetworkNameSplitted := strings.Split(item.NetworkName, "/")
 
-			// get the network name by splitting the Harvester network object <namespace>/<network>
-			if len(harvesterNetworkNameSplitted) < 1 {
-				log.Errorf("(getHarvesterNetworkName) error harvesterNetworkName format is not correct")
-			} else {
-				harvesterNetworkName = harvesterNetworkNameSplitted[1]
+				// get the network name by splitting the Harvester network object <namespace>/<network>
+				if len(harvesterNetworkNameSplitted) < 1 {
+					log.Errorf("(getHarvesterNetworkName) error harvesterNetworkName format is not correct")
+				} else {
+					harvesterNetworkName = harvesterNetworkNameSplitted[1]
+				}
+
+				break
+			} else if item.NetworkInfo != "" {
+				// the networkInfo object is added since Rancher 2.7.3 and Harvester 1.1.2
+				networkInfo := HarvesterNetworkInfoStruct{}
+				err := json.Unmarshal([]byte(item.NetworkInfo), &networkInfo)
+				if err != nil {
+					log.Errorf("(getHarvesterNetworkName) error converting Harvester networkInfo JSON to a HarvesterNetworkInfoStruct")
+				} else {
+					if len(networkInfo.Interfaces) > 1 {
+						log.Warnf("(getHarvesterNetworkName) machinepool has more then 1 interfaces, only using the first interface")
+					}
+
+					harvesterNetworkNameSplitted := strings.Split(networkInfo.Interfaces[0].NetworkName, "/")
+
+					// get the network name by splitting the Harvester network object <namespace>/<network>
+					if len(harvesterNetworkNameSplitted) < 1 {
+						log.Errorf("(getHarvesterNetworkName) error harvesterNetworkName format is not correct")
+					} else {
+						harvesterNetworkName = harvesterNetworkNameSplitted[1]
+					}
+				}
+
+				break
 			}
-
-			break
 		}
 	}
 

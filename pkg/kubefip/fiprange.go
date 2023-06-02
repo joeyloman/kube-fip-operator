@@ -10,7 +10,7 @@ import (
 )
 
 func GetFipRange(fipRangeName string) (KubefipV1.FloatingIPRange, error) {
-	log.Debugf("(GetFipRange) retrieving fipRangeName: [%s]\n", fipRangeName)
+	log.Debugf("(GetFipRange) retrieving fipRangeName: [%s]", fipRangeName)
 
 	for i := 0; i < len(AllFipRanges); i++ {
 		// check if the fiprange has a match
@@ -29,7 +29,7 @@ func GetFipRange(fipRangeName string) (KubefipV1.FloatingIPRange, error) {
 func AllocateFipRange(fipRange *KubefipV1.FloatingIPRange) error {
 	var err error
 
-	log.Tracef("(AllocateFipRange) fiprangeobj added: [%+v]\n", fipRange)
+	log.Tracef("(AllocateFipRange) fiprangeobj added: [%+v]", fipRange)
 
 	// get the fiprange from the fiprange object
 	if fipRange.Spec.IPRange == "" {
@@ -62,7 +62,7 @@ func AllocateFipRange(fipRange *KubefipV1.FloatingIPRange) error {
 func RemoveFipRange(fipRange *KubefipV1.FloatingIPRange) error {
 	var err error
 
-	log.Tracef("(RemoveFipRange) fiprangeobj removed: [%+v]\n", fipRange)
+	log.Tracef("(RemoveFipRange) fiprangeobj removed: [%+v]", fipRange)
 
 	// get the fiprange from the fiprange object
 	fr_name := fipRange.Spec.IPRange

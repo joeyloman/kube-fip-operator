@@ -3,12 +3,22 @@ package app
 // for mapping harvesterconfigs.rke-machine-config.cattle.io
 type HarvesterConfigStruct struct {
 	Metadata    MetadataStruct `json:"metadata"`
+	NetworkInfo string         `json:"networkInfo"`
 	NetworkName string         `json:"networkName"`
 }
 
 // for mapping harvesterconfigs.rke-machine-config.cattle.io
 type HarvesterConfigsStruct struct {
 	Items []HarvesterConfigStruct `json:"items"`
+}
+
+type HarvesterNetworkInfoInterfacesStruct struct {
+	NetworkName string `json:"networkName"`
+	MacAddress  string `json:"macAddress"`
+}
+
+type HarvesterNetworkInfoStruct struct {
+	Interfaces []HarvesterNetworkInfoInterfacesStruct `json:"interfaces"`
 }
 
 // for mapping cluster.provisioning.cattle.io
