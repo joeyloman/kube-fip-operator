@@ -110,6 +110,14 @@ default value: kube-system
 description: The name of the NameSpace where kube-vip should be deployed.
 ```
 
+**kubevipReleaseName**
+```YAML
+option: kubevipReleaseName
+value: <helm release name>
+default value: kube-vip
+description: The release name of the kube-vip Helm installation.
+```
+
 **kubevipChartRepoUrl**
 ```YAML
 option: kubevipChartRepoUrl
@@ -127,10 +135,20 @@ default value: |
     vip_interface: enp1s0
   image:
     repository: plndr/kube-vip
-    tag: v0.4.1
+    tag: v0.6.4
+  env:
+    prometheus_server: ':8080'
   nodeSelector:
     node-role.kubernetes.io/master: 'true'
 description: This specifies the Helm Chart values (in yaml format) for deploying Kube-Vip.
+```
+
+**kubevipCloudProviderReleaseName**
+```YAML
+option: kubevipCloudProviderReleaseName
+value: <helm release name>
+default value: kube-vip-cloud-provider
+description: The release name of the kube-vip-cloud-provider Helm installation.
 ```
 
 **kubevipCloudProviderChartValues**
@@ -140,7 +158,7 @@ value: <Helm Chart values.yaml content>
 default value: |
   image:
     repository: kubevip/kube-vip-cloud-provider
-    tag: 0.1
+    tag: v0.0.7
 description: This specifies the Helm Chart values (in yaml format) for deploying the Kube-Vip Cloud Provider.
 ```
 
