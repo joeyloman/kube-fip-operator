@@ -9,8 +9,6 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 )
 
-//go:generate mockgen -source=interface.go -package mockhelmclient -destination=./mock/interface.go -self_package=. Client
-
 // Client holds the method signatures for a Helm client.
 // NOTE: This is an interface to allow for mocking in tests.
 type Client interface {
@@ -32,6 +30,7 @@ type Client interface {
 	SetDebugLog(debugLog action.DebugLog)
 	ListReleaseHistory(name string, max int) ([]*release.Release, error)
 	GetChart(chartName string, chartPathOptions *action.ChartPathOptions) (*chart.Chart, string, error)
+	RunChartTests(releaseName string) (bool, error)
 }
 
 type RollBack interface {
