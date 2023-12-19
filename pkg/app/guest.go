@@ -18,6 +18,7 @@ import (
 	"github.com/joeyloman/kube-fip-operator/pkg/metrics"
 
 	helmclient "github.com/mittwald/go-helm-client"
+	"github.com/mittwald/go-helm-client/values"
 	"helm.sh/helm/v3/pkg/repo"
 
 	log "github.com/sirupsen/logrus"
@@ -56,12 +57,12 @@ func installKubevipCloudproviderInGuestCluster(kubeconfig []byte, kubefipConfig 
 		return updateMetrics, err
 	}
 
-	kubevipCoudproviderReleaseCheck, err := helmClient.GetRelease("kube-vip-cloud-provider")
+	kubevipCoudproviderReleaseCheck, err := helmClient.GetRelease(kubefipConfig.KubevipCloudProviderReleaseName)
 	if err != nil {
 		if err.Error() == "release: not found" {
 			// now we can install it
-			log.Infof("(installKubevipCloudproviderInGuestCluster) kube-vip-cloud-provider release not found in guest cluster [%s], trying to install it",
-				fip.ObjectMeta.Annotations["clustername"])
+			log.Infof("(installKubevipCloudproviderInGuestCluster) %s release not found in guest cluster [%s], trying to install it",
+				kubefipConfig.KubevipCloudProviderReleaseName, fip.ObjectMeta.Annotations["clustername"])
 		} else {
 			return updateMetrics, err
 		}
@@ -86,12 +87,17 @@ func installKubevipCloudproviderInGuestCluster(kubeconfig []byte, kubefipConfig 
 		return updateMetrics, err
 	}
 
+	vOpts := values.Options{}
+	vOpts.Values = append(vOpts.Values, fmt.Sprintf("nameOverride=%s", kubefipConfig.KubevipCloudProviderReleaseName))
+
 	chartSpecKubevipCloudprovider := helmclient.ChartSpec{
-		ReleaseName: "kube-vip-cloud-provider",
-		ChartName:   "kube-vip/kube-vip-cloud-provider",
-		Namespace:   kubefipConfig.KubevipNamespace,
-		ValuesYaml:  kubefipConfig.KubevipCloudProviderChartValues,
-		Wait:        false,
+		ReleaseName:     kubefipConfig.KubevipCloudProviderReleaseName,
+		ChartName:       "kube-vip/kube-vip-cloud-provider",
+		Namespace:       kubefipConfig.KubevipNamespace,
+		ValuesYaml:      kubefipConfig.KubevipCloudProviderChartValues,
+		ValuesOptions:   vOpts,
+		CreateNamespace: true,
+		Wait:            false,
 	}
 
 	kubevipCloudproviderRelease, err := helmClient.InstallOrUpgradeChart(context.Background(), &chartSpecKubevipCloudprovider, nil)
@@ -99,8 +105,8 @@ func installKubevipCloudproviderInGuestCluster(kubeconfig []byte, kubefipConfig 
 		return updateMetrics, err
 	}
 
-	log.Debugf("(installKubevipCloudproviderInGuestCluster) returned kube-vip-cloud-provider helm release manifest: %s",
-		kubevipCloudproviderRelease.Manifest)
+	log.Debugf("(installKubevipCloudproviderInGuestCluster) returned %s helm release manifest: %s",
+		kubefipConfig.KubevipCloudProviderReleaseName, kubevipCloudproviderRelease.Manifest)
 
 	log.Infof("(installKubevipCloudproviderInGuestCluster) kube-vip-cloud-provider helm chart installed successfully in guest cluster [%s]",
 		fip.ObjectMeta.Annotations["clustername"])
@@ -132,12 +138,12 @@ func installKubevipInGuestCluster(kubeconfig []byte, kubefipConfig *config.Kubef
 		return updateMetrics, err
 	}
 
-	kubevipReleaseCheck, err := helmClient.GetRelease("kube-vip")
+	kubevipReleaseCheck, err := helmClient.GetRelease(kubefipConfig.KubevipReleaseName)
 	if err != nil {
 		if err.Error() == "release: not found" {
 			// now we can install it
-			log.Infof("(installKubevipInGuestCluster) kube-vip release not found in guest cluster [%s], trying to install it",
-				fip.ObjectMeta.Annotations["clustername"])
+			log.Infof("(installKubevipInGuestCluster) %s release not found in guest cluster [%s], trying to install it",
+				kubefipConfig.KubevipReleaseName, fip.ObjectMeta.Annotations["clustername"])
 		} else {
 			return updateMetrics, err
 		}
@@ -162,12 +168,17 @@ func installKubevipInGuestCluster(kubeconfig []byte, kubefipConfig *config.Kubef
 		return updateMetrics, err
 	}
 
+	vOpts := values.Options{}
+	vOpts.Values = append(vOpts.Values, fmt.Sprintf("nameOverride=%s", kubefipConfig.KubevipReleaseName))
+
 	chartSpecKubevip := helmclient.ChartSpec{
-		ReleaseName: "kube-vip",
-		ChartName:   "kube-vip/kube-vip",
-		Namespace:   kubefipConfig.KubevipNamespace,
-		ValuesYaml:  kubefipConfig.KubevipChartValues,
-		Wait:        false,
+		ReleaseName:     kubefipConfig.KubevipReleaseName,
+		ChartName:       "kube-vip/kube-vip",
+		Namespace:       kubefipConfig.KubevipNamespace,
+		ValuesYaml:      kubefipConfig.KubevipChartValues,
+		ValuesOptions:   vOpts,
+		CreateNamespace: true,
+		Wait:            false,
 	}
 
 	kubevipRelease, err := helmClient.InstallOrUpgradeChart(context.Background(), &chartSpecKubevip, nil)
@@ -175,8 +186,8 @@ func installKubevipInGuestCluster(kubeconfig []byte, kubefipConfig *config.Kubef
 		return updateMetrics, err
 	}
 
-	log.Debugf("(installKubevipInGuestCluster) returned kube-vip helm release manifest: %s",
-		kubevipRelease.Manifest)
+	log.Debugf("(installKubevipInGuestCluster) returned %s helm release manifest: %s",
+		kubefipConfig.KubevipReleaseName, kubevipRelease.Manifest)
 
 	log.Infof("(installKubevipInGuestCluster) kube-vip helm chart installed successfully in guest cluster [%s]",
 		fip.ObjectMeta.Annotations["clustername"])
@@ -186,6 +197,7 @@ func installKubevipInGuestCluster(kubeconfig []byte, kubefipConfig *config.Kubef
 
 func createOrUpdateKubevipConfigmapInGuestCluster(kubeconfig []byte, kubefipConfig *config.KubefipConfigStruct, fip KubefipV1.FloatingIP) (bool, error) {
 	var kubevipConfigMapName string = "kubevip"
+	var kubevipConfigMapNamespace string = "kube-system"
 	var configMapExists bool = false
 	var err error
 
@@ -202,7 +214,7 @@ func createOrUpdateKubevipConfigmapInGuestCluster(kubeconfig []byte, kubefipConf
 	}
 
 	// list the configmaps in kube-system
-	cmList, err := clientset.CoreV1().ConfigMaps(kubefipConfig.KubevipNamespace).List(context.TODO(), metav1.ListOptions{})
+	cmList, err := clientset.CoreV1().ConfigMaps(kubevipConfigMapNamespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return updateMetrics, err
 	}
@@ -211,7 +223,7 @@ func createOrUpdateKubevipConfigmapInGuestCluster(kubeconfig []byte, kubefipConf
 	for _, cm := range cmList.Items {
 		if cm.Name == kubevipConfigMapName {
 			log.Debugf("(createKubevipConfigmapInGuestCluster) configmap [%s/%s] already exists in guest cluster [%s]",
-				kubefipConfig.KubevipNamespace, kubevipConfigMapName, fip.ObjectMeta.Annotations["clustername"])
+				kubevipConfigMapNamespace, kubevipConfigMapName, fip.ObjectMeta.Annotations["clustername"])
 
 			configMapExists = true
 			break
@@ -220,19 +232,19 @@ func createOrUpdateKubevipConfigmapInGuestCluster(kubeconfig []byte, kubefipConf
 
 	if !configMapExists {
 		// generating the new configmap
-		newConfigMap := configmap.NewKubevipConfigmap(&fip, kubevipConfigMapName, kubefipConfig.KubevipNamespace)
+		newConfigMap := configmap.NewKubevipConfigmap(&fip, kubevipConfigMapName, kubevipConfigMapNamespace)
 
 		// creating the new configmap
-		cmCreateObj, err := clientset.CoreV1().ConfigMaps(kubefipConfig.KubevipNamespace).Create(context.TODO(), &newConfigMap, metav1.CreateOptions{})
+		cmCreateObj, err := clientset.CoreV1().ConfigMaps(kubevipConfigMapNamespace).Create(context.TODO(), &newConfigMap, metav1.CreateOptions{})
 		if err != nil {
 			errMsg := fmt.Sprintf("error creating kubevip configmap [%s/%s] in guest cluster [%s]: %s",
-				kubefipConfig.KubevipNamespace, kubevipConfigMapName, fip.ObjectMeta.Annotations["clustername"], err.Error())
+				kubevipConfigMapNamespace, kubevipConfigMapName, fip.ObjectMeta.Annotations["clustername"], err.Error())
 			return updateMetrics, errors.New(errMsg)
 		}
 		log.Tracef("(createKubevipConfigmapInGuestCluster) configmap obj created: [%s]", cmCreateObj)
 
 		log.Infof("(createKubevipConfigmapInGuestCluster) successfully created configmap [%s/%s] in guest cluster [%s]",
-			kubefipConfig.KubevipNamespace, kubevipConfigMapName, fip.ObjectMeta.Annotations["clustername"])
+			kubevipConfigMapNamespace, kubevipConfigMapName, fip.ObjectMeta.Annotations["clustername"])
 	} else {
 		forceUpdate, err := strconv.ParseBool(fip.ObjectMeta.Annotations["updateConfigMap"])
 		if err != nil {
@@ -241,19 +253,19 @@ func createOrUpdateKubevipConfigmapInGuestCluster(kubeconfig []byte, kubefipConf
 
 		if forceUpdate {
 			// generating the new configmap
-			newConfigMap := configmap.NewKubevipConfigmap(&fip, kubevipConfigMapName, kubefipConfig.KubevipNamespace)
+			newConfigMap := configmap.NewKubevipConfigmap(&fip, kubevipConfigMapName, kubevipConfigMapNamespace)
 
 			// updating the existing configmap
-			cmUpdateObj, err := clientset.CoreV1().ConfigMaps(kubefipConfig.KubevipNamespace).Update(context.TODO(), &newConfigMap, metav1.UpdateOptions{})
+			cmUpdateObj, err := clientset.CoreV1().ConfigMaps(kubevipConfigMapNamespace).Update(context.TODO(), &newConfigMap, metav1.UpdateOptions{})
 			if err != nil {
-				errMsg := fmt.Sprintf("error updating kubevip configmap [%s/%s] in guest cluster [%s]: %s", kubefipConfig.KubevipNamespace,
+				errMsg := fmt.Sprintf("error updating kubevip configmap [%s/%s] in guest cluster [%s]: %s", kubevipConfigMapNamespace,
 					kubevipConfigMapName, fip.ObjectMeta.Annotations["clustername"], err.Error())
 				return updateMetrics, errors.New(errMsg)
 			}
 			log.Tracef("(createKubevipConfigmapInGuestCluster) configmap obj updated: [%s]", cmUpdateObj)
 
 			log.Debugf("(createKubevipConfigmapInGuestCluster) successfully updated configmap [%s/%s] in guest cluster [%s]",
-				kubefipConfig.KubevipNamespace, kubevipConfigMapName, fip.ObjectMeta.Annotations["clustername"])
+				kubevipConfigMapNamespace, kubevipConfigMapName, fip.ObjectMeta.Annotations["clustername"])
 		} else {
 			return dontUpdateMetrics, err
 		}
