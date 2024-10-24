@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2024 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,12 +19,14 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
+	json "encoding/json"
+	fmt "fmt"
 
-	kubefipk8sbinbashorgv1 "github.com/joeyloman/kube-fip-operator/pkg/apis/kubefip.k8s.binbash.org/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "github.com/joeyloman/kube-fip-operator/pkg/apis/kubefip.k8s.binbash.org/v1"
+	kubefipk8sbinbashorgv1 "github.com/joeyloman/kube-fip-operator/pkg/generated/applyconfiguration/kubefip.k8s.binbash.org/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -35,34 +37,36 @@ type FakeFloatingIPRanges struct {
 	Fake *FakeKubefipV1
 }
 
-var floatingiprangesResource = schema.GroupVersionResource{Group: "kubefip.k8s.binbash.org", Version: "v1", Resource: "floatingipranges"}
+var floatingiprangesResource = v1.SchemeGroupVersion.WithResource("floatingipranges")
 
-var floatingiprangesKind = schema.GroupVersionKind{Group: "kubefip.k8s.binbash.org", Version: "v1", Kind: "FloatingIPRange"}
+var floatingiprangesKind = v1.SchemeGroupVersion.WithKind("FloatingIPRange")
 
 // Get takes name of the floatingIPRange, and returns the corresponding floatingIPRange object, and an error if there is any.
-func (c *FakeFloatingIPRanges) Get(ctx context.Context, name string, options v1.GetOptions) (result *kubefipk8sbinbashorgv1.FloatingIPRange, err error) {
+func (c *FakeFloatingIPRanges) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.FloatingIPRange, err error) {
+	emptyResult := &v1.FloatingIPRange{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(floatingiprangesResource, name), &kubefipk8sbinbashorgv1.FloatingIPRange{})
+		Invokes(testing.NewRootGetActionWithOptions(floatingiprangesResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
-	return obj.(*kubefipk8sbinbashorgv1.FloatingIPRange), err
+	return obj.(*v1.FloatingIPRange), err
 }
 
 // List takes label and field selectors, and returns the list of FloatingIPRanges that match those selectors.
-func (c *FakeFloatingIPRanges) List(ctx context.Context, opts v1.ListOptions) (result *kubefipk8sbinbashorgv1.FloatingIPRangeList, err error) {
+func (c *FakeFloatingIPRanges) List(ctx context.Context, opts metav1.ListOptions) (result *v1.FloatingIPRangeList, err error) {
+	emptyResult := &v1.FloatingIPRangeList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(floatingiprangesResource, floatingiprangesKind, opts), &kubefipk8sbinbashorgv1.FloatingIPRangeList{})
+		Invokes(testing.NewRootListActionWithOptions(floatingiprangesResource, floatingiprangesKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &kubefipk8sbinbashorgv1.FloatingIPRangeList{ListMeta: obj.(*kubefipk8sbinbashorgv1.FloatingIPRangeList).ListMeta}
-	for _, item := range obj.(*kubefipk8sbinbashorgv1.FloatingIPRangeList).Items {
+	list := &v1.FloatingIPRangeList{ListMeta: obj.(*v1.FloatingIPRangeList).ListMeta}
+	for _, item := range obj.(*v1.FloatingIPRangeList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -71,63 +75,112 @@ func (c *FakeFloatingIPRanges) List(ctx context.Context, opts v1.ListOptions) (r
 }
 
 // Watch returns a watch.Interface that watches the requested floatingIPRanges.
-func (c *FakeFloatingIPRanges) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeFloatingIPRanges) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(floatingiprangesResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(floatingiprangesResource, opts))
 }
 
 // Create takes the representation of a floatingIPRange and creates it.  Returns the server's representation of the floatingIPRange, and an error, if there is any.
-func (c *FakeFloatingIPRanges) Create(ctx context.Context, floatingIPRange *kubefipk8sbinbashorgv1.FloatingIPRange, opts v1.CreateOptions) (result *kubefipk8sbinbashorgv1.FloatingIPRange, err error) {
+func (c *FakeFloatingIPRanges) Create(ctx context.Context, floatingIPRange *v1.FloatingIPRange, opts metav1.CreateOptions) (result *v1.FloatingIPRange, err error) {
+	emptyResult := &v1.FloatingIPRange{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(floatingiprangesResource, floatingIPRange), &kubefipk8sbinbashorgv1.FloatingIPRange{})
+		Invokes(testing.NewRootCreateActionWithOptions(floatingiprangesResource, floatingIPRange, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
-	return obj.(*kubefipk8sbinbashorgv1.FloatingIPRange), err
+	return obj.(*v1.FloatingIPRange), err
 }
 
 // Update takes the representation of a floatingIPRange and updates it. Returns the server's representation of the floatingIPRange, and an error, if there is any.
-func (c *FakeFloatingIPRanges) Update(ctx context.Context, floatingIPRange *kubefipk8sbinbashorgv1.FloatingIPRange, opts v1.UpdateOptions) (result *kubefipk8sbinbashorgv1.FloatingIPRange, err error) {
+func (c *FakeFloatingIPRanges) Update(ctx context.Context, floatingIPRange *v1.FloatingIPRange, opts metav1.UpdateOptions) (result *v1.FloatingIPRange, err error) {
+	emptyResult := &v1.FloatingIPRange{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(floatingiprangesResource, floatingIPRange), &kubefipk8sbinbashorgv1.FloatingIPRange{})
+		Invokes(testing.NewRootUpdateActionWithOptions(floatingiprangesResource, floatingIPRange, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
-	return obj.(*kubefipk8sbinbashorgv1.FloatingIPRange), err
+	return obj.(*v1.FloatingIPRange), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeFloatingIPRanges) UpdateStatus(ctx context.Context, floatingIPRange *kubefipk8sbinbashorgv1.FloatingIPRange, opts v1.UpdateOptions) (*kubefipk8sbinbashorgv1.FloatingIPRange, error) {
+func (c *FakeFloatingIPRanges) UpdateStatus(ctx context.Context, floatingIPRange *v1.FloatingIPRange, opts metav1.UpdateOptions) (result *v1.FloatingIPRange, err error) {
+	emptyResult := &v1.FloatingIPRange{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(floatingiprangesResource, "status", floatingIPRange), &kubefipk8sbinbashorgv1.FloatingIPRange{})
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(floatingiprangesResource, "status", floatingIPRange, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
-	return obj.(*kubefipk8sbinbashorgv1.FloatingIPRange), err
+	return obj.(*v1.FloatingIPRange), err
 }
 
 // Delete takes name of the floatingIPRange and deletes it. Returns an error if one occurs.
-func (c *FakeFloatingIPRanges) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+func (c *FakeFloatingIPRanges) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(floatingiprangesResource, name), &kubefipk8sbinbashorgv1.FloatingIPRange{})
+		Invokes(testing.NewRootDeleteActionWithOptions(floatingiprangesResource, name, opts), &v1.FloatingIPRange{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeFloatingIPRanges) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(floatingiprangesResource, listOpts)
+func (c *FakeFloatingIPRanges) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+	action := testing.NewRootDeleteCollectionActionWithOptions(floatingiprangesResource, opts, listOpts)
 
-	_, err := c.Fake.Invokes(action, &kubefipk8sbinbashorgv1.FloatingIPRangeList{})
+	_, err := c.Fake.Invokes(action, &v1.FloatingIPRangeList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched floatingIPRange.
-func (c *FakeFloatingIPRanges) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *kubefipk8sbinbashorgv1.FloatingIPRange, err error) {
+func (c *FakeFloatingIPRanges) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.FloatingIPRange, err error) {
+	emptyResult := &v1.FloatingIPRange{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(floatingiprangesResource, name, pt, data, subresources...), &kubefipk8sbinbashorgv1.FloatingIPRange{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(floatingiprangesResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
+		return emptyResult, err
+	}
+	return obj.(*v1.FloatingIPRange), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied floatingIPRange.
+func (c *FakeFloatingIPRanges) Apply(ctx context.Context, floatingIPRange *kubefipk8sbinbashorgv1.FloatingIPRangeApplyConfiguration, opts metav1.ApplyOptions) (result *v1.FloatingIPRange, err error) {
+	if floatingIPRange == nil {
+		return nil, fmt.Errorf("floatingIPRange provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(floatingIPRange)
+	if err != nil {
 		return nil, err
 	}
-	return obj.(*kubefipk8sbinbashorgv1.FloatingIPRange), err
+	name := floatingIPRange.Name
+	if name == nil {
+		return nil, fmt.Errorf("floatingIPRange.Name must be provided to Apply")
+	}
+	emptyResult := &v1.FloatingIPRange{}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(floatingiprangesResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions()), emptyResult)
+	if obj == nil {
+		return emptyResult, err
+	}
+	return obj.(*v1.FloatingIPRange), err
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *FakeFloatingIPRanges) ApplyStatus(ctx context.Context, floatingIPRange *kubefipk8sbinbashorgv1.FloatingIPRangeApplyConfiguration, opts metav1.ApplyOptions) (result *v1.FloatingIPRange, err error) {
+	if floatingIPRange == nil {
+		return nil, fmt.Errorf("floatingIPRange provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(floatingIPRange)
+	if err != nil {
+		return nil, err
+	}
+	name := floatingIPRange.Name
+	if name == nil {
+		return nil, fmt.Errorf("floatingIPRange.Name must be provided to Apply")
+	}
+	emptyResult := &v1.FloatingIPRange{}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(floatingiprangesResource, *name, types.ApplyPatchType, data, opts.ToPatchOptions(), "status"), emptyResult)
+	if obj == nil {
+		return emptyResult, err
+	}
+	return obj.(*v1.FloatingIPRange), err
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	v1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -32,6 +33,93 @@ var (
 	updateMetrics     bool = true
 	dontUpdateMetrics bool = false
 )
+
+// The patchHarvesterKubeVipDaemonset and checkForHarvesterKubeVipDaemonset functions disables the Harvester cloud provider
+// based kube-vip deployment because this interferes with our deployment.
+func patchHarvesterKubeVipDaemonset(clientset *kubernetes.Clientset, harvesterKubeVipDaemonSet *v1.DaemonSet, clusterName string, kubevipDsNamespace string, nodeSelectorName string) (err error) {
+	log.Infof("(patchHarvesterKubeVipDaemonset) patching Harvester DaemonSet for kube-vip in cluster [%s]", clusterName)
+
+	newNodeSelector := make(map[string]string)
+	newNodeSelector[nodeSelectorName] = "true"
+
+	newharvesterKubeVipDaemonSet := harvesterKubeVipDaemonSet.DeepCopy()
+	newharvesterKubeVipDaemonSet.Spec.Template.Spec.NodeSelector = newNodeSelector
+
+	if _, err := clientset.AppsV1().DaemonSets(kubevipDsNamespace).Update(context.TODO(), newharvesterKubeVipDaemonSet, metav1.UpdateOptions{}); err != nil {
+		return fmt.Errorf("(patchHarvesterKubeVipDaemonset) error while updating kube-vip DaemonSet in cluster [%s]: %s",
+			clusterName, err.Error())
+	}
+
+	log.Infof("(patchHarvesterKubeVipDaemonset) successfully added nodeSelector [%s] to Harvester DaemonSet kube-vip in cluster [%s]", nodeSelectorName, clusterName)
+
+	return
+}
+
+func checkForHarvesterKubeVipDaemonset(kubeconfig []byte, fip KubefipV1.FloatingIP) {
+	var kubevipDsMapName string = "kube-vip"
+	var kubevipDsNamespace string = "kube-system"
+	var nodeSelectorName string = "node-role.kubernetes.io/harvester-kube-vip-disabled"
+
+	log.Debugf("(checkForHarvesterKubeVipDaemonset) start connection to guest cluster [%s]",
+		fip.ObjectMeta.Annotations["clustername"])
+
+	config, err := clientcmd.RESTConfigFromKubeConfig(kubeconfig)
+	if err != nil {
+		log.Errorf("(checkForHarvesterKubeVipDaemonset) error while getting restconfig from kubeconfig: %s", err.Error())
+
+		return
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Errorf("(checkForHarvesterKubeVipDaemonset) error while creating K8S clientset: %s", err.Error())
+
+		return
+	}
+
+	harvesterKubeVipDaemonSet, err := clientset.AppsV1().DaemonSets(kubevipDsNamespace).Get(context.TODO(), kubevipDsMapName, metav1.GetOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			log.Debugf("(checkForHarvesterKubeVipDaemonset) DaemonSet [%s/%s] not found in guest cluster [%s], skipping update..",
+				kubevipDsNamespace, kubevipDsMapName, fip.ObjectMeta.Annotations["clustername"])
+
+			return
+		} else {
+			log.Errorf("(checkForHarvesterKubeVipDaemonset) error while getting daemonset [%s/%s] not found in guest cluster [%s]: %s",
+				kubevipDsNamespace, kubevipDsMapName, fip.ObjectMeta.Annotations["clustername"], err.Error())
+
+			return
+		}
+	}
+
+	if harvesterKubeVipDaemonSet.ObjectMeta.Annotations["meta.helm.sh/release-name"] == "harvester-cloud-provider" {
+		log.Debugf("(checkForHarvesterKubeVipDaemonset) harvester-cloud-provider found in meta.helm.sh/release-name in cluster [%s]",
+			fip.ObjectMeta.Annotations["clustername"])
+
+		for k, v := range harvesterKubeVipDaemonSet.Spec.Template.Spec.NodeSelector {
+			log.Debugf("(checkForHarvesterKubeVipDaemonset) DaemonSet NodeSelector found in cluster [%s]: k=%s / v=%s",
+				fip.ObjectMeta.Annotations["clustername"], k, v)
+
+			if k == nodeSelectorName {
+				log.Debugf("(checkForHarvesterKubeVipDaemonset) DaemonSet NodeSelector [%s] already found in guest cluster [%s]",
+					nodeSelectorName, fip.ObjectMeta.Annotations["clustername"])
+
+				return
+			}
+		}
+
+		// nodeSelector not found, patch the Harvester DaemonSet
+		if err := patchHarvesterKubeVipDaemonset(clientset, harvesterKubeVipDaemonSet, fip.ObjectMeta.Annotations["clustername"], kubevipDsNamespace, nodeSelectorName); err != nil {
+			log.Errorf("%s", err.Error())
+		}
+
+		return
+	}
+
+	// Harvester DaemonSet not found
+	log.Debugf("(checkForHarvesterKubeVipDaemonset) No Harvester DaemonSet found in guest cluster [%s]",
+		fip.ObjectMeta.Annotations["clustername"])
+}
 
 func installKubevipCloudproviderInGuestCluster(kubeconfig []byte, kubefipConfig *config.KubefipConfigStruct, fip KubefipV1.FloatingIP) (bool, error) {
 	var err error
@@ -376,6 +464,9 @@ func operateGuestClusters(clientset *kubernetes.Clientset, kubefipConfig *config
 				metrics.IncrementGuestClusterEventsMetric(allFipsCopy[i].ObjectMeta.Annotations["clustername"],
 					cluster.HarvesterClusterName, metrics.EventApiConnection, metrics.StatusSuccess)
 
+				// patch the Harvester cloud provider Kube-Vip daemonset
+				checkForHarvesterKubeVipDaemonset(kubeconfig, allFipsCopy[i])
+
 				// determine the kube-vip installation type
 				kubevipGuestInstallLabel = false
 				if kubefipConfig.KubevipGuestInstall == "clusterlabel" {
@@ -447,9 +538,13 @@ func operateGuestClusters(clientset *kubernetes.Clientset, kubefipConfig *config
 				allFipsCopy[i].ObjectMeta.Namespace, allFipsCopy[i].ObjectMeta.Name, allFipsCopy[i].Spec.IPAddress)
 		}
 
-		for k, v := range kubefip.PrefixList {
-			log.Infof("(IPAM DATA) stored prefix/fiprange name [%s] and cidr [%s]", k, v.Cidr)
+		for i := 0; i < len(kubefip.AllFipRanges); i++ {
+			kubefip.IPAM.Usage(kubefip.AllFipRanges[i].Name)
 		}
+
+		// for k, v := range kubefip.PrefixList {
+		// 	log.Infof("(IPAM DATA) stored prefix/fiprange name [%s] and cidr [%s]", k, v.Cidr)
+		// }
 	}
 
 	metrics.InOperationMode = false

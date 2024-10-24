@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2024 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	kubefipk8sbinbashorgv1 "github.com/joeyloman/kube-fip-operator/pkg/apis/kubefip.k8s.binbash.org/v1"
+	apiskubefipk8sbinbashorgv1 "github.com/joeyloman/kube-fip-operator/pkg/apis/kubefip.k8s.binbash.org/v1"
 	versioned "github.com/joeyloman/kube-fip-operator/pkg/generated/clientset/versioned"
 	internalinterfaces "github.com/joeyloman/kube-fip-operator/pkg/generated/informers/externalversions/internalinterfaces"
-	v1 "github.com/joeyloman/kube-fip-operator/pkg/generated/listers/kubefip.k8s.binbash.org/v1"
+	kubefipk8sbinbashorgv1 "github.com/joeyloman/kube-fip-operator/pkg/generated/listers/kubefip.k8s.binbash.org/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // FloatingIPRanges.
 type FloatingIPRangeInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.FloatingIPRangeLister
+	Lister() kubefipk8sbinbashorgv1.FloatingIPRangeLister
 }
 
 type floatingIPRangeInformer struct {
@@ -70,7 +70,7 @@ func NewFilteredFloatingIPRangeInformer(client versioned.Interface, resyncPeriod
 				return client.KubefipV1().FloatingIPRanges().Watch(context.TODO(), options)
 			},
 		},
-		&kubefipk8sbinbashorgv1.FloatingIPRange{},
+		&apiskubefipk8sbinbashorgv1.FloatingIPRange{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,9 +81,9 @@ func (f *floatingIPRangeInformer) defaultInformer(client versioned.Interface, re
 }
 
 func (f *floatingIPRangeInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kubefipk8sbinbashorgv1.FloatingIPRange{}, f.defaultInformer)
+	return f.factory.InformerFor(&apiskubefipk8sbinbashorgv1.FloatingIPRange{}, f.defaultInformer)
 }
 
-func (f *floatingIPRangeInformer) Lister() v1.FloatingIPRangeLister {
-	return v1.NewFloatingIPRangeLister(f.Informer().GetIndexer())
+func (f *floatingIPRangeInformer) Lister() kubefipk8sbinbashorgv1.FloatingIPRangeLister {
+	return kubefipk8sbinbashorgv1.NewFloatingIPRangeLister(f.Informer().GetIndexer())
 }
