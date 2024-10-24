@@ -5,23 +5,21 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"k8s.io/client-go/kubernetes"
 
 	KubefipV1 "github.com/joeyloman/kube-fip-operator/pkg/apis/kubefip.k8s.binbash.org/v1"
 	kubefipclientset "github.com/joeyloman/kube-fip-operator/pkg/generated/clientset/versioned"
-	goipam "github.com/metal-stack/go-ipam"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/joeyloman/kubevirt-ip-helper/pkg/ipam"
 )
 
 var (
 	AllFipRanges []KubefipV1.FloatingIPRange
 	AllFips      []KubefipV1.FloatingIP
-	ipam         goipam.Ipamer
-	ctx          context.Context
-	PrefixList   map[string]goipam.Prefix
+	IPAM         *ipam.IPAllocator
 )
 
 func GatherAllFipRanges(clientset *kubefipclientset.Clientset) error {
@@ -229,22 +227,12 @@ func RemoveFipFromAllFips(fip *KubefipV1.FloatingIP) error {
 }
 
 func InitIpam() {
-	// create a ipamer with in memory storage
-	ipam = goipam.New()
-
-	// create the context
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// fixes the declared and not used error
-	_ = ctx
+	// initialize the ipam service
+	IPAM = ipam.New()
 }
 
 func CreateIpamPrefixesFromFipRanges() {
 	log.Debugf("(CreateIpamPrefixesFromFipRanges) start creating ipam prefixes from fipranges..")
-
-	// initialize the list with prefixes
-	PrefixList = make(map[string]goipam.Prefix)
 
 	for i := 0; i < len(AllFipRanges); i++ {
 		log.Tracef("(CreateIpamPrefixesFromFipRanges) fiprange obj: [%+v]", AllFipRanges[i])

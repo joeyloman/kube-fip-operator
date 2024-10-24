@@ -33,29 +33,26 @@ func AllocateFip(fip *KubefipV1.FloatingIP, clientset *kubefipclientset.Clientse
 		return errors.New(errMsg)
 	}
 
-	// lookup the fiprange name to get the cidr and check if it exists
-	pfx := PrefixList[frName]
-	if pfx.Cidr == "" {
-		errMsg := fmt.Sprintf("fiprange [%s] not found in prefix list for [%s/%s]",
-			frName, fip.ObjectMeta.Namespace, fip.ObjectMeta.Name)
-		return errors.New(errMsg)
+	// check if the fiprange exists
+	_, err = GetFipRange(frName)
+	if err != nil {
+		return err
 	}
 
 	// check if the spec has an IPAddress specified
 	if fip.Spec.IPAddress == "" {
-		// allocate a new FIP in the prefix
-		ip, err := ipam.AcquireIP(ctx, pfx.Cidr)
+		ip, err := IPAM.GetIP(frName, "")
 		if err != nil {
 			log.Errorf("(AllocateFip) cannot acquire new ip address for [%s/%s]",
 				fip.ObjectMeta.Namespace, fip.ObjectMeta.Name)
 			return err
 		} else {
 			log.Infof("(AllocateFip) successfully allocated fip [%s/%s] with new IP address: %s",
-				fip.ObjectMeta.Namespace, fip.ObjectMeta.Name, ip.IP)
+				fip.ObjectMeta.Namespace, fip.ObjectMeta.Name, ip)
 		}
 
 		// update the fip object in kubernetes
-		fip.Spec.IPAddress = ip.IP.String()
+		fip.Spec.IPAddress = ip
 		updatedFip, err := clientset.KubefipV1().FloatingIPs(fip.ObjectMeta.Namespace).Update(context.TODO(), fip, metav1.UpdateOptions{})
 		if err != nil {
 			return err
@@ -68,7 +65,7 @@ func AllocateFip(fip *KubefipV1.FloatingIP, clientset *kubefipclientset.Clientse
 		if err != nil {
 			log.Errorf("(AllocateFip) could not increment Fipranges metrics: %s", err)
 		} else {
-			metrics.IncrementFiprangesReserved(frName, pfx.Cidr, fipRange.ObjectMeta.Annotations["harvesterClusterName"],
+			metrics.IncrementFiprangesReserved(frName, fipRange.Spec.IPRange, fipRange.ObjectMeta.Annotations["harvesterClusterName"],
 				fipRange.ObjectMeta.Annotations["harvesterNetworkName"])
 		}
 
@@ -78,12 +75,14 @@ func AllocateFip(fip *KubefipV1.FloatingIP, clientset *kubefipclientset.Clientse
 		}
 	} else {
 		// register the allocated fip in the prefix
-		ip, err := ipam.AcquireSpecificIP(ctx, pfx.Cidr, fip.Spec.IPAddress)
+		ip, err := IPAM.GetIP(frName, fip.Spec.IPAddress)
 		if err != nil {
+			log.Errorf("(AllocateFip) cannot acquire existing IP address [%s] for [%s/%s]",
+				fip.Spec.IPAddress, fip.ObjectMeta.Namespace, fip.ObjectMeta.Name)
 			return err
 		} else {
-			log.Infof("(AllocateFip) successfully allocated fip [%s/%s] with existing IP address: %s",
-				fip.ObjectMeta.Namespace, fip.ObjectMeta.Name, ip.IP)
+			log.Infof("(AllocateFip) successfully allocated fip [%s/%s] with new IP address: %s",
+				fip.ObjectMeta.Namespace, fip.ObjectMeta.Name, ip)
 		}
 
 		// update the metrics
@@ -91,7 +90,7 @@ func AllocateFip(fip *KubefipV1.FloatingIP, clientset *kubefipclientset.Clientse
 		if err != nil {
 			log.Errorf("(AllocateFip) could not increment Fipranges metrics: %s", err)
 		} else {
-			metrics.IncrementFiprangesReserved(frName, pfx.Cidr, fipRange.ObjectMeta.Annotations["harvesterClusterName"],
+			metrics.IncrementFiprangesReserved(frName, fipRange.Spec.IPRange, fipRange.ObjectMeta.Annotations["harvesterClusterName"],
 				fipRange.ObjectMeta.Annotations["harvesterNetworkName"])
 		}
 
@@ -115,14 +114,16 @@ func RemoveFip(fip *KubefipV1.FloatingIP) error {
 		return errors.New("fiprange not found in annotations")
 	}
 
-	// lookup the fiprange name to get the cidr and check if it exists
-	pfx := PrefixList[frName]
-	if pfx.Cidr != "" {
-		if err := ipam.ReleaseIPFromPrefix(ctx, pfx.Cidr, fip.Spec.IPAddress); err != nil {
-			log.Errorf("(RemoveFip) error while removing fip [%s/%s] from pfx cidr [%s]: %s",
+	// check if the fiprange exists
+	_, err = GetFipRange(frName)
+	if err != nil {
+		log.Errorf("%s", err.Error())
+	} else {
+		if err := IPAM.ReleaseIP(frName, fip.Spec.IPAddress); err != nil {
+			log.Errorf("(RemoveFip) error while removing fip [%s] with ip [%s] from subnet [%s]: %s",
 				fip.ObjectMeta.Name, fip.Spec.IPAddress, frName, err.Error())
 		} else {
-			log.Infof("(RemoveFip) successfully removed fip [%s/%s] from pfx cidr [%s]",
+			log.Infof("(RemoveFip) successfully removed fip [%s] with ip [%s] from pfx cidr [%s]",
 				fip.ObjectMeta.Name, fip.Spec.IPAddress, frName)
 
 			// update the metrics
@@ -130,12 +131,10 @@ func RemoveFip(fip *KubefipV1.FloatingIP) error {
 			if err != nil {
 				log.Errorf("(RemoveFip) could not decrement Fipranges metrics: %s", err)
 			} else {
-				metrics.DecrementFiprangesReserved(frName, pfx.Cidr, fipRange.ObjectMeta.Annotations["harvesterClusterName"],
+				metrics.DecrementFiprangesReserved(frName, fipRange.Spec.IPRange, fipRange.ObjectMeta.Annotations["harvesterClusterName"],
 					fipRange.ObjectMeta.Annotations["harvesterNetworkName"])
 			}
 		}
-	} else {
-		log.Errorf("(RemoveFip) iprange not found in prefix list")
 	}
 
 	if err := RemoveFipFromAllFips(fip); err != nil {

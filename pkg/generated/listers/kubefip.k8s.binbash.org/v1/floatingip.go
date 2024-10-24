@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2024 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/joeyloman/kube-fip-operator/pkg/apis/kubefip.k8s.binbash.org/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	kubefipk8sbinbashorgv1 "github.com/joeyloman/kube-fip-operator/pkg/apis/kubefip.k8s.binbash.org/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // FloatingIPLister helps list FloatingIPs.
@@ -30,7 +30,7 @@ import (
 type FloatingIPLister interface {
 	// List lists all FloatingIPs in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.FloatingIP, err error)
+	List(selector labels.Selector) (ret []*kubefipk8sbinbashorgv1.FloatingIP, err error)
 	// FloatingIPs returns an object that can list and get FloatingIPs.
 	FloatingIPs(namespace string) FloatingIPNamespaceLister
 	FloatingIPListerExpansion
@@ -38,25 +38,17 @@ type FloatingIPLister interface {
 
 // floatingIPLister implements the FloatingIPLister interface.
 type floatingIPLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*kubefipk8sbinbashorgv1.FloatingIP]
 }
 
 // NewFloatingIPLister returns a new FloatingIPLister.
 func NewFloatingIPLister(indexer cache.Indexer) FloatingIPLister {
-	return &floatingIPLister{indexer: indexer}
-}
-
-// List lists all FloatingIPs in the indexer.
-func (s *floatingIPLister) List(selector labels.Selector) (ret []*v1.FloatingIP, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.FloatingIP))
-	})
-	return ret, err
+	return &floatingIPLister{listers.New[*kubefipk8sbinbashorgv1.FloatingIP](indexer, kubefipk8sbinbashorgv1.Resource("floatingip"))}
 }
 
 // FloatingIPs returns an object that can list and get FloatingIPs.
 func (s *floatingIPLister) FloatingIPs(namespace string) FloatingIPNamespaceLister {
-	return floatingIPNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return floatingIPNamespaceLister{listers.NewNamespaced[*kubefipk8sbinbashorgv1.FloatingIP](s.ResourceIndexer, namespace)}
 }
 
 // FloatingIPNamespaceLister helps list and get FloatingIPs.
@@ -64,36 +56,15 @@ func (s *floatingIPLister) FloatingIPs(namespace string) FloatingIPNamespaceList
 type FloatingIPNamespaceLister interface {
 	// List lists all FloatingIPs in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.FloatingIP, err error)
+	List(selector labels.Selector) (ret []*kubefipk8sbinbashorgv1.FloatingIP, err error)
 	// Get retrieves the FloatingIP from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.FloatingIP, error)
+	Get(name string) (*kubefipk8sbinbashorgv1.FloatingIP, error)
 	FloatingIPNamespaceListerExpansion
 }
 
 // floatingIPNamespaceLister implements the FloatingIPNamespaceLister
 // interface.
 type floatingIPNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all FloatingIPs in the indexer for a given namespace.
-func (s floatingIPNamespaceLister) List(selector labels.Selector) (ret []*v1.FloatingIP, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.FloatingIP))
-	})
-	return ret, err
-}
-
-// Get retrieves the FloatingIP from the indexer for a given namespace and name.
-func (s floatingIPNamespaceLister) Get(name string) (*v1.FloatingIP, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("floatingip"), name)
-	}
-	return obj.(*v1.FloatingIP), nil
+	listers.ResourceIndexer[*kubefipk8sbinbashorgv1.FloatingIP]
 }

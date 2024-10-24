@@ -10,7 +10,6 @@ import (
 
 	"go.starlark.net/internal/compile"
 	"go.starlark.net/internal/spell"
-	"go.starlark.net/resolve"
 	"go.starlark.net/syntax"
 )
 
@@ -24,19 +23,19 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 	// Postcondition: args is not mutated. This is stricter than required by Callable,
 	// but allows CALL to avoid a copy.
 
-	if !resolve.AllowRecursion {
+	f := fn.funcode
+	if !f.Prog.Recursion {
 		// detect recursion
 		for _, fr := range thread.stack[:len(thread.stack)-1] {
 			// We look for the same function code,
 			// not function value, otherwise the user could
 			// defeat the check by writing the Y combinator.
-			if frfn, ok := fr.Callable().(*Function); ok && frfn.funcode == fn.funcode {
+			if frfn, ok := fr.Callable().(*Function); ok && frfn.funcode == f {
 				return nil, fmt.Errorf("function %s called recursively", fn.Name())
 			}
 		}
 	}
 
-	f := fn.funcode
 	fr := thread.frameAt(0)
 
 	// Allocate space for stack and locals.
@@ -80,6 +79,17 @@ func (fn *Function) CallInternal(thread *Thread, args Tuple, kwargs []Tuple) (Va
 	// - there is no redefinition of 'err'.
 
 	var iterstack []Iterator // stack of active iterators
+
+	// Use defer so that application panics can pass through
+	// interpreter without leaving thread in a bad state.
+	defer func() {
+		// ITERPOP the rest of the iterator stack.
+		for _, iter := range iterstack {
+			iter.Done()
+		}
+
+		fr.locals = nil
+	}()
 
 	sp := 0
 	var pc uint32
@@ -646,14 +656,7 @@ loop:
 			break loop
 		}
 	}
-
-	// ITERPOP the rest of the iterator stack.
-	for _, iter := range iterstack {
-		iter.Done()
-	}
-
-	fr.locals = nil
-
+	// (deferred cleanup runs here)
 	return result, err
 }
 

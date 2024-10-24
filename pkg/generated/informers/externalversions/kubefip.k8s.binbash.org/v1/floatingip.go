@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2024 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	kubefipk8sbinbashorgv1 "github.com/joeyloman/kube-fip-operator/pkg/apis/kubefip.k8s.binbash.org/v1"
+	apiskubefipk8sbinbashorgv1 "github.com/joeyloman/kube-fip-operator/pkg/apis/kubefip.k8s.binbash.org/v1"
 	versioned "github.com/joeyloman/kube-fip-operator/pkg/generated/clientset/versioned"
 	internalinterfaces "github.com/joeyloman/kube-fip-operator/pkg/generated/informers/externalversions/internalinterfaces"
-	v1 "github.com/joeyloman/kube-fip-operator/pkg/generated/listers/kubefip.k8s.binbash.org/v1"
+	kubefipk8sbinbashorgv1 "github.com/joeyloman/kube-fip-operator/pkg/generated/listers/kubefip.k8s.binbash.org/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // FloatingIPs.
 type FloatingIPInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.FloatingIPLister
+	Lister() kubefipk8sbinbashorgv1.FloatingIPLister
 }
 
 type floatingIPInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredFloatingIPInformer(client versioned.Interface, namespace string,
 				return client.KubefipV1().FloatingIPs(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&kubefipk8sbinbashorgv1.FloatingIP{},
+		&apiskubefipk8sbinbashorgv1.FloatingIP{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *floatingIPInformer) defaultInformer(client versioned.Interface, resyncP
 }
 
 func (f *floatingIPInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kubefipk8sbinbashorgv1.FloatingIP{}, f.defaultInformer)
+	return f.factory.InformerFor(&apiskubefipk8sbinbashorgv1.FloatingIP{}, f.defaultInformer)
 }
 
-func (f *floatingIPInformer) Lister() v1.FloatingIPLister {
-	return v1.NewFloatingIPLister(f.Informer().GetIndexer())
+func (f *floatingIPInformer) Lister() kubefipk8sbinbashorgv1.FloatingIPLister {
+	return kubefipk8sbinbashorgv1.NewFloatingIPLister(f.Informer().GetIndexer())
 }
