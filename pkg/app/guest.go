@@ -541,10 +541,6 @@ func operateGuestClusters(clientset *kubernetes.Clientset, kubefipConfig *config
 		for i := 0; i < len(kubefip.AllFipRanges); i++ {
 			kubefip.IPAM.Usage(kubefip.AllFipRanges[i].Name)
 		}
-
-		// for k, v := range kubefip.PrefixList {
-		// 	log.Infof("(IPAM DATA) stored prefix/fiprange name [%s] and cidr [%s]", k, v.Cidr)
-		// }
 	}
 
 	metrics.InOperationMode = false
