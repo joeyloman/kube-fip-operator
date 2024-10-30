@@ -13,18 +13,22 @@ import (
 )
 
 type KubefipConfigStruct struct {
-	LogLevel                        string `json:"LogLevel"`
-	TraceIpamData                   bool   `json:"TraceIpamData"`
-	OperateGuestClusterInterval     int    `json:"OperateGuestClusterInterval"`
-	MetricsPort                     int    `json:"MetricsPort"`
-	KubevipGuestInstall             string `json:"KubevipGuestInstall"`
-	KubevipNamespace                string `json:"KubevipNamespace"`
-	KubevipReleaseName              string `json:"KubevipReleaseName"`
-	KubevipChartRepoUrl             string `json:"KubevipChartRepoUrl"`
-	KubevipChartValues              string `json:"KubevipChartValues"`
-	KubevipCloudProviderReleaseName string `json:"KubevipCloudProviderReleaseName"`
-	KubevipCloudProviderChartValues string `json:"KubevipCloudProviderChartValues"`
-	KubevipUpdate                   bool   `json:"KubevipUpdate"`
+	LogLevel                         string `json:"LogLevel"`
+	TraceIpamData                    bool   `json:"TraceIpamData"`
+	OperateGuestClusterInterval      int    `json:"OperateGuestClusterInterval"`
+	MetricsPort                      int    `json:"MetricsPort"`
+	KubevipGuestInstall              string `json:"KubevipGuestInstall"`
+	KubevipNamespace                 string `json:"KubevipNamespace"`
+	KubevipReleaseName               string `json:"KubevipReleaseName"`
+	KubevipChartRepoUrl              string `json:"KubevipChartRepoUrl"`
+	KubevipChartRef                  string `json:"KubevipChartRef"`
+	KubevipChartVersion              string `json:"KubevipChartVersion"`
+	KubevipChartValues               string `json:"KubevipChartValues"`
+	KubevipCloudProviderReleaseName  string `json:"KubevipCloudProviderReleaseName"`
+	KubevipCloudProviderChartRef     string `json:"KubevipCloudProviderChartRef"`
+	KubevipCloudProviderChartVersion string `json:"KubevipCloudProviderChartVersion"`
+	KubevipCloudProviderChartValues  string `json:"KubevipCloudProviderChartValues"`
+	KubevipUpdate                    bool   `json:"KubevipUpdate"`
 }
 
 func GetKubefipConfigmap(clientset *kubernetes.Clientset) (*corev1.ConfigMap, error) {
@@ -52,18 +56,25 @@ func ParseKubfipConfigMap(kubefipConfigmap *corev1.ConfigMap) KubefipConfigStruc
 	kubefipConfig.KubevipNamespace = "kube-system"
 	kubefipConfig.KubevipReleaseName = "kube-vip"
 	kubefipConfig.KubevipChartRepoUrl = "https://kube-vip.io/helm-charts"
+	kubefipConfig.KubevipChartRef = ""
+	kubefipConfig.KubevipChartVersion = ""
 	kubefipConfig.KubevipChartValues = "{\"image\":{\"repository\":\"plndr/kube-vip\",\"tag\":\"v0.6.4\"},\"config\":{\"vip_interface\":\"enp1s0\"},\"nodeSelector\":{\"node-role.kubernetes.io/master\":\"true\"}}"
 	kubefipConfig.KubevipCloudProviderReleaseName = "kube-vip-cloud-provider"
+	kubefipConfig.KubevipCloudProviderChartRef = ""
+	kubefipConfig.KubevipCloudProviderChartVersion = ""
 	kubefipConfig.KubevipCloudProviderChartValues = "{\"image\":{\"repository\":\"kubevip/kube-vip-cloud-provider\",\"tag\":\"v0.0.7\"}}"
 	kubefipConfig.KubevipUpdate = false
 
 	if kubefipConfigmap == nil {
 		log.Debugf("(ParseKubfipConfigMap) config options: LogLevel [%s] / TraceIpamData [%+v] / OperateGuestClusterInterval [%d] / "+
 			"MetricsPort [%d] / KubevipGuestInstall [%s] / KubevipNamespace [%s] / KubevipReleaseName [%s] / KubevipChartRepoUrl [%s] / "+
-			"KubevipChartValues [%s] / KubevipCloudProviderReleaseName [%s] / KubevipCloudProviderChartValues [%s] / KubevipUpdate [%+v]",
+			"KubevipChartRef [%s] / KubevipChartVersion [%s] / KubevipChartValues [%s] / KubevipCloudProviderReleaseName [%s] / "+
+			"KubevipCloudProviderChartRef [%s] / KubevipCloudProviderChartVersion [%s] / KubevipCloudProviderChartValues [%s] / KubevipUpdate [%+v]",
 			kubefipConfig.LogLevel, kubefipConfig.TraceIpamData, kubefipConfig.OperateGuestClusterInterval, kubefipConfig.MetricsPort,
 			kubefipConfig.KubevipGuestInstall, kubefipConfig.KubevipNamespace, kubefipConfig.KubevipReleaseName, kubefipConfig.KubevipChartRepoUrl,
-			kubefipConfig.KubevipChartValues, kubefipConfig.KubevipCloudProviderReleaseName, kubefipConfig.KubevipCloudProviderChartValues, kubefipConfig.KubevipUpdate)
+			kubefipConfig.KubevipChartRef, kubefipConfig.KubevipChartVersion, kubefipConfig.KubevipChartValues, kubefipConfig.KubevipCloudProviderReleaseName,
+			kubefipConfig.KubevipCloudProviderChartRef, kubefipConfig.KubevipCloudProviderChartVersion, kubefipConfig.KubevipCloudProviderChartValues,
+			kubefipConfig.KubevipUpdate)
 
 		return kubefipConfig
 	}
@@ -115,12 +126,28 @@ func ParseKubfipConfigMap(kubefipConfigmap *corev1.ConfigMap) KubefipConfigStruc
 		kubefipConfig.KubevipChartRepoUrl = kubefipConfigmap.Data["kubevipChartRepoUrl"]
 	}
 
+	if kubefipConfigmap.Data["kubevipChartRef"] != "" {
+		kubefipConfig.KubevipChartRef = kubefipConfigmap.Data["kubevipChartRef"]
+	}
+
+	if kubefipConfigmap.Data["kubevipChartVersion"] != "" {
+		kubefipConfig.KubevipChartVersion = kubefipConfigmap.Data["kubevipChartVersion"]
+	}
+
 	if kubefipConfigmap.Data["kubevipChartValues"] != "" {
 		kubefipConfig.KubevipChartValues = kubefipConfigmap.Data["kubevipChartValues"]
 	}
 
 	if kubefipConfigmap.Data["kubevipCloudProviderReleaseName"] != "" {
 		kubefipConfig.KubevipCloudProviderReleaseName = kubefipConfigmap.Data["kubevipCloudProviderReleaseName"]
+	}
+
+	if kubefipConfigmap.Data["kubevipCloudProviderChartRef"] != "" {
+		kubefipConfig.KubevipCloudProviderChartRef = kubefipConfigmap.Data["kubevipCloudProviderChartRef"]
+	}
+
+	if kubefipConfigmap.Data["kubevipCloudProviderChartVersion"] != "" {
+		kubefipConfig.KubevipCloudProviderChartVersion = kubefipConfigmap.Data["kubevipCloudProviderChartVersion"]
 	}
 
 	if kubefipConfigmap.Data["kubevipCloudProviderChartValues"] != "" {
@@ -138,10 +165,13 @@ func ParseKubfipConfigMap(kubefipConfigmap *corev1.ConfigMap) KubefipConfigStruc
 
 	log.Debugf("(ParseKubfipConfigMap) config options: LogLevel [%s] / TraceIpamData [%+v] / OperateGuestClusterInterval [%d] / "+
 		"MetricsPort [%d] / KubevipGuestInstall [%s] / KubevipNamespace [%s] / KubevipReleaseName [%s] / KubevipChartRepoUrl [%s] / "+
-		"KubevipChartValues [%s] / KubevipCloudProviderReleaseName [%s] / KubevipCloudProviderChartValues [%s] / KubevipUpdate [%+v]",
+		"KubevipChartRef [%s] / KubevipChartVersion [%s] / KubevipChartValues [%s] / KubevipCloudProviderReleaseName [%s] / "+
+		"KubevipCloudProviderChartRef [%s] / KubevipCloudProviderChartVersion [%s] / KubevipCloudProviderChartValues [%s] / KubevipUpdate [%+v]",
 		kubefipConfig.LogLevel, kubefipConfig.TraceIpamData, kubefipConfig.OperateGuestClusterInterval, kubefipConfig.MetricsPort,
 		kubefipConfig.KubevipGuestInstall, kubefipConfig.KubevipNamespace, kubefipConfig.KubevipReleaseName, kubefipConfig.KubevipChartRepoUrl,
-		kubefipConfig.KubevipChartValues, kubefipConfig.KubevipCloudProviderReleaseName, kubefipConfig.KubevipCloudProviderChartValues, kubefipConfig.KubevipUpdate)
+		kubefipConfig.KubevipChartRef, kubefipConfig.KubevipChartVersion, kubefipConfig.KubevipChartValues, kubefipConfig.KubevipCloudProviderReleaseName,
+		kubefipConfig.KubevipCloudProviderChartRef, kubefipConfig.KubevipCloudProviderChartVersion, kubefipConfig.KubevipCloudProviderChartValues,
+		kubefipConfig.KubevipUpdate)
 
 	return kubefipConfig
 }
