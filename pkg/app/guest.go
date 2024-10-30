@@ -123,6 +123,7 @@ func checkForHarvesterKubeVipDaemonset(kubeconfig []byte, fip KubefipV1.Floating
 
 func installKubevipCloudproviderInGuestCluster(kubeconfig []byte, kubefipConfig *config.KubefipConfigStruct, fip KubefipV1.FloatingIP) (bool, error) {
 	var err error
+	var chartName string
 
 	config, err := clientcmd.RESTConfigFromKubeConfig(kubeconfig)
 	if err != nil {
@@ -145,7 +146,7 @@ func installKubevipCloudproviderInGuestCluster(kubeconfig []byte, kubefipConfig 
 		return updateMetrics, err
 	}
 
-	kubevipCoudproviderReleaseCheck, err := helmClient.GetRelease(kubefipConfig.KubevipCloudProviderReleaseName)
+	kubevipCloudproviderReleaseCheck, err := helmClient.GetRelease(kubefipConfig.KubevipCloudProviderReleaseName)
 	if err != nil {
 		if err.Error() == "release: not found" {
 			// now we can install it
@@ -156,9 +157,9 @@ func installKubevipCloudproviderInGuestCluster(kubeconfig []byte, kubefipConfig 
 		}
 	}
 
-	if kubevipCoudproviderReleaseCheck != nil {
+	if kubevipCloudproviderReleaseCheck != nil {
 		log.Debugf("(installKubevipCloudproviderInGuestCluster) helm chart already found in guest cluster [%s]: %s",
-			fip.ObjectMeta.Annotations["clustername"], kubevipCoudproviderReleaseCheck.Name)
+			fip.ObjectMeta.Annotations["clustername"], kubevipCloudproviderReleaseCheck.Name)
 
 		// if not in update mode, don't update kube-vip
 		if !kubefipConfig.KubevipUpdate {
@@ -166,13 +167,19 @@ func installKubevipCloudproviderInGuestCluster(kubeconfig []byte, kubefipConfig 
 		}
 	}
 
-	chartRepo := repo.Entry{
-		Name: "kube-vip",
-		URL:  kubefipConfig.KubevipChartRepoUrl,
-	}
+	if kubefipConfig.KubevipCloudProviderChartRef == "" {
+		chartRepo := repo.Entry{
+			Name: "kube-vip",
+			URL:  kubefipConfig.KubevipChartRepoUrl,
+		}
 
-	if err := helmClient.AddOrUpdateChartRepo(chartRepo); err != nil {
-		return updateMetrics, err
+		if err := helmClient.AddOrUpdateChartRepo(chartRepo); err != nil {
+			return updateMetrics, err
+		}
+
+		chartName = "kube-vip/kube-vip-cloud-provider"
+	} else {
+		chartName = kubefipConfig.KubevipCloudProviderChartRef
 	}
 
 	vOpts := values.Options{}
@@ -180,7 +187,8 @@ func installKubevipCloudproviderInGuestCluster(kubeconfig []byte, kubefipConfig 
 
 	chartSpecKubevipCloudprovider := helmclient.ChartSpec{
 		ReleaseName:     kubefipConfig.KubevipCloudProviderReleaseName,
-		ChartName:       "kube-vip/kube-vip-cloud-provider",
+		ChartName:       chartName,
+		Version:         kubefipConfig.KubevipCloudProviderChartVersion,
 		Namespace:       kubefipConfig.KubevipNamespace,
 		ValuesYaml:      kubefipConfig.KubevipCloudProviderChartValues,
 		ValuesOptions:   vOpts,
@@ -204,6 +212,7 @@ func installKubevipCloudproviderInGuestCluster(kubeconfig []byte, kubefipConfig 
 
 func installKubevipInGuestCluster(kubeconfig []byte, kubefipConfig *config.KubefipConfigStruct, fip KubefipV1.FloatingIP) (bool, error) {
 	var err error
+	var chartName string
 
 	config, err := clientcmd.RESTConfigFromKubeConfig(kubeconfig)
 	if err != nil {
@@ -247,13 +256,19 @@ func installKubevipInGuestCluster(kubeconfig []byte, kubefipConfig *config.Kubef
 		}
 	}
 
-	chartRepo := repo.Entry{
-		Name: "kube-vip",
-		URL:  kubefipConfig.KubevipChartRepoUrl,
-	}
+	if kubefipConfig.KubevipChartRef == "" {
+		chartRepo := repo.Entry{
+			Name: "kube-vip",
+			URL:  kubefipConfig.KubevipChartRepoUrl,
+		}
 
-	if err := helmClient.AddOrUpdateChartRepo(chartRepo); err != nil {
-		return updateMetrics, err
+		if err := helmClient.AddOrUpdateChartRepo(chartRepo); err != nil {
+			return updateMetrics, err
+		}
+
+		chartName = "kube-vip/kube-vip"
+	} else {
+		chartName = kubefipConfig.KubevipChartRef
 	}
 
 	vOpts := values.Options{}
@@ -261,7 +276,8 @@ func installKubevipInGuestCluster(kubeconfig []byte, kubefipConfig *config.Kubef
 
 	chartSpecKubevip := helmclient.ChartSpec{
 		ReleaseName:     kubefipConfig.KubevipReleaseName,
-		ChartName:       "kube-vip/kube-vip",
+		ChartName:       chartName,
+		Version:         kubefipConfig.KubevipChartVersion,
 		Namespace:       kubefipConfig.KubevipNamespace,
 		ValuesYaml:      kubefipConfig.KubevipChartValues,
 		ValuesOptions:   vOpts,

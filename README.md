@@ -126,6 +126,22 @@ default value: "https://kube-vip.io/helm-charts"
 description: This specifies the Kube-Vip Helm Chart URL.
 ```
 
+**kubevipChartRef**
+```YAML
+option: kubevipChartRef
+value: <Kube-Vip Helm Chart Ref>
+default value: ""
+description: This specifies the Kube-Vip Helm Chart Ref in case of OCI repos, for example "oci://some-oci-repo-fqdn/kube-vip". Use this option in combination with kubevipChartVersion. If this is set, the default kubevipChartRepoUrl option will be ignored.
+```
+
+**kubevipChartVersion**
+```YAML
+option: kubevipChartVersion
+value: <Kube-Vip Helm Chart Version>
+default value: ""
+description: This specifies the Kube-Vip Helm Chart Version in case of OCI repos, for example "0.4.4". Use this option in combination with kubevipChartRef.
+```
+
 **kubevipChartValues**
 ```YAML
 option: kubevipChartValues:
@@ -149,6 +165,22 @@ option: kubevipCloudProviderReleaseName
 value: <helm release name>
 default value: kube-vip-cloud-provider
 description: The release name of the kube-vip-cloud-provider Helm installation.
+```
+
+**kubevipCloudProviderChartRef**
+```YAML
+option: kubevipCloudProviderChartRef
+value: <Kube-Vip-Cloud-Provider Helm Chart Ref>
+default value: ""
+description: This specifies the Kube-Vip-Cloud-Provider Helm Chart Ref in case of OCI repos, for example "oci://some-oci-repo-fqdn/kube-vip-cloud-provider". Use this option in combination with kubevipCloudProviderChartVersion. If this is set, the default kubevipChartRepoUrl option will be ignored.
+```
+
+**kubevipCloudProviderChartVersion**
+```YAML
+option: kubevipCloudProviderChartVersion
+value: <Kube-Vip-Cloud-Provider Helm Chart Version>
+default value: ""
+description: This specifies the Kube-Vip-Cloud-Provider Helm Chart Version in case of OCI repos, for example "0.2.2". Use this option in combination with kubevipCloudProviderChartRef.
 ```
 
 **kubevipCloudProviderChartValues**
