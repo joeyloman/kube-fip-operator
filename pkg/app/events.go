@@ -119,16 +119,18 @@ func watchEvents(kubefip_clientset *kubefipclientset.Clientset, k8s_clientset *k
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				log.Debugf("(watchFipRangeEvents) entering the eventwatch UpdateFunc ..")
+				log.Warnf("(watchFipRangeEvents) FloatingIPRange object updates are disabled, restart the pod to activate them ..")
 
-				if watchEventsActivated {
-					// update the Fip
-					if err := kubefip.UpdateFipRange(oldObj.(*KubefipV1.FloatingIPRange), newObj.(*KubefipV1.FloatingIPRange)); err != nil {
-						log.Errorf("(watchFipRangeEvents) error removing fiprange: %s", err.Error())
-					}
-				} else {
-					log.Debugf("(watchFipEvents) not activated yet, object action not executed")
-				}
+				// log.Debugf("(watchFipRangeEvents) entering the eventwatch UpdateFunc ..")
+
+				// if watchEventsActivated {
+				// 	// update the Fip
+				// 	if err := kubefip.UpdateFipRange(oldObj.(*KubefipV1.FloatingIPRange), newObj.(*KubefipV1.FloatingIPRange)); err != nil {
+				// 		log.Errorf("(watchFipRangeEvents) error removing fiprange: %s", err.Error())
+				// 	}
+				// } else {
+				// 	log.Debugf("(watchFipEvents) not activated yet, object action not executed")
+				// }
 			},
 		},
 	)
